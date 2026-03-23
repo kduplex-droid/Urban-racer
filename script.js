@@ -1614,25 +1614,46 @@ function drawMinimap() {
     ctx.stroke();
   }
 
-  const cx = width * 0.5;
-  const cy = height * 0.5;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(-vehicle.heading);
-  ctx.fillStyle = '#ff5f5f';
-  ctx.beginPath();
-  ctx.moveTo(0, -12);
-  ctx.lineTo(8, 10);
-  ctx.lineTo(0, 5);
-  ctx.lineTo(-8, 10);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+const cx = width * 0.5;
+const cy = height * 0.5;
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, width - 2, height - 2);
-}
+ctx.save();
+ctx.translate(cx, cy);
+ctx.rotate(-vehicle.heading);
+
+// car body
+ctx.fillStyle = '#ff5f5f';
+ctx.strokeStyle = '#111';
+ctx.lineWidth = 1.5;
+
+ctx.beginPath();
+ctx.roundRect(-7, -13, 14, 26, 4);
+ctx.fill();
+ctx.stroke();
+
+// windshield / roof
+ctx.fillStyle = '#d9f3ff';
+ctx.beginPath();
+ctx.roundRect(-4.5, -7, 9, 10, 2);
+ctx.fill();
+
+// heading marker at the front
+ctx.fillStyle = '#ffffff';
+ctx.beginPath();
+ctx.moveTo(0, -16);
+ctx.lineTo(4, -10);
+ctx.lineTo(-4, -10);
+ctx.closePath();
+ctx.fill();
+
+// wheels
+ctx.fillStyle = '#1a1a1a';
+ctx.fillRect(-9, -10, 2.5, 6);
+ctx.fillRect(6.5, -10, 2.5, 6);
+ctx.fillRect(-9, 4, 2.5, 6);
+ctx.fillRect(6.5, 4, 2.5, 6);
+
+ctx.restore();
 
 // ------------------------------------------------------------
 // World bootstrapping
