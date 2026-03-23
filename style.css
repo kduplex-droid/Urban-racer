@@ -587,63 +587,6 @@ body.mobile-ui .controls-panel {
 
   .touch-action-grid {
     gap: 8px;
-<<<<<<< HEAD
-=======
-  }
-}
-
-@media (max-width: 520px) {
-  .mission-panel {
-    left: 10px;
-    right: 10px;
-    width: auto;
-  }
-
-  .state-panel {
-    top: 142px;
-    left: 10px;
-    right: 10px;
-    width: auto;
-  }
-
-  body.mobile-ui .hud-left {
-    left: 10px;
-    right: 10px;
-    bottom: 192px;
-    min-width: 0;
-  }
-
-  .minimap-panel {
-    bottom: 192px;
-    right: 10px;
-    left: auto;
-  }
-
-  .mobile-controls {
-    padding: 0 8px;
-  }
-
-  .touch-btn-dir {
-    width: 62px;
-    height: 62px;
-    font-size: 1.25rem;
-  }
-
-  .touch-btn-action {
-    min-width: 58px;
-    height: 48px;
-    font-size: 0.76rem;
-    border-radius: 18px;
-  }
-
-  .touch-cluster {
-    gap: 8px;
-  }
-
-  .touch-row,
-  .touch-action-grid {
-    gap: 8px;
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   }
 }
 

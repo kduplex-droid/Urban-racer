@@ -13,11 +13,8 @@ const speedValue = document.getElementById('speedValue');
 const gearValue = document.getElementById('gearValue');
 const modeValue = document.getElementById('modeValue');
 const cameraValue = document.getElementById('cameraValue');
-<<<<<<< HEAD
 const carValue = document.getElementById('carValue');
 const garageValue = document.getElementById('garageValue');
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 const interactionHint = document.getElementById('interactionHint');
 const missionTitle = document.getElementById('missionTitle');
 const missionText = document.getElementById('missionText');
@@ -27,7 +24,6 @@ const minimapCanvas = document.getElementById('minimapCanvas');
 const minimapToggle = document.getElementById('minimapToggle');
 const minimapCtx = minimapCanvas.getContext('2d');
 const mobileControls = document.getElementById('mobileControls');
-<<<<<<< HEAD
 const hubOverlay = document.getElementById('hubOverlay');
 const hubModeGrid = document.getElementById('hubModeGrid');
 const hubCarGrid = document.getElementById('hubCarGrid');
@@ -66,9 +62,6 @@ function detectPerformanceProfile() {
 
 const performanceProfile = detectPerformanceProfile();
 let frameIndex = 0;
-=======
-const touchButtons = [...document.querySelectorAll('.touch-btn')];
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
 // ------------------------------------------------------------
 // Core Three.js setup
@@ -183,10 +176,10 @@ window.addEventListener('keydown', (event) => {
     case 'KeyS':
       input.brake = true;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.left = true;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.right = true;
       break;
     case 'Space':
@@ -225,10 +218,10 @@ window.addEventListener('keyup', (event) => {
     case 'KeyS':
       input.brake = false;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.left = false;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.right = false;
       break;
     case 'Space':
@@ -266,13 +259,10 @@ function runTouchAction(action) {
   if (action === 'interact') handleInteract();
   else if (action === 'camera') toggleCameraMode();
   else if (action === 'minimap') toggleMinimap();
-<<<<<<< HEAD
   else if (action === 'hub') {
     if (hubState.open) closeHubOverlay();
     else if (canOpenHub(true)) openHubOverlay();
   }
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function setHeldInput(name, active, button) {
@@ -401,11 +391,7 @@ function setMoveTarget(point, shouldRun = false) {
 }
 
 function setMoveTargetFromScreen(clientX, clientY) {
-<<<<<<< HEAD
   if (!gameStarted || playerState.inVehicle || hubState.open || menu.classList.contains('visible')) return false;
-=======
-  if (!gameStarted || playerState.inVehicle) return false;
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   const rect = canvas.getBoundingClientRect();
   pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
   pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -1302,7 +1288,6 @@ function createPlayerCar() {
 
 const playerCar = createPlayerCar();
 
-<<<<<<< HEAD
 
 const carPresets = [
   {
@@ -1591,8 +1576,6 @@ closeHubButton.addEventListener('click', () => {
 });
 
 
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 function createHumanoidMesh(scale = 1, palette = {}) {
   const group = new THREE.Group();
   const skin = new THREE.MeshStandardMaterial({ color: palette.skin || 0xc89273, roughness: 0.92 });
@@ -1714,13 +1697,8 @@ function createHumanoidMesh(scale = 1, palette = {}) {
   group.scale.setScalar(scale);
   group.traverse((child) => {
     if (child.isMesh) {
-<<<<<<< HEAD
       child.castShadow = !performanceProfile.lowProfile;
       child.receiveShadow = !performanceProfile.lowProfile;
-=======
-      child.castShadow = true;
-      child.receiveShadow = true;
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     }
   });
 
@@ -1799,12 +1777,8 @@ const vehicle = {
   steerSpeed: 5.4,
   steerCrossSpeed: 2.35,
   steerReturnSpeed: 6.0,
-<<<<<<< HEAD
   yawResponse: 5.95,
   activeCarId: 'starter'
-=======
-  yawResponse: 5.95
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 };
 
 const playerState = {
@@ -1820,7 +1794,6 @@ const playerState = {
   hornPulse: 0,
   moveTarget: new THREE.Vector3(),
   moveTargetActive: false,
-<<<<<<< HEAD
   moveTargetRun: false,
   transitionLock: 0
 };
@@ -1838,19 +1811,6 @@ function resetOnFootNearCar() {
     getCarDoorPosition('right', 0.55),
     vehicle.position.clone().addScaledVector(vehicleForward(), -4.6)
   ];
-=======
-  moveTargetRun: false
-};
-
-function getCarDoorPosition(side = 'left') {
-  const right = vehicleRight();
-  const offset = side === 'left' ? -1.45 : 1.45;
-  return vehicle.position.clone().addScaledVector(right, offset).addScaledVector(vehicleForward(), -0.18);
-}
-
-function resetOnFootNearCar() {
-  const candidates = [getCarDoorPosition('left'), getCarDoorPosition('right'), vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   for (const candidate of candidates) {
     const p = candidate.clone();
     if (!resolveCircleCollisions(p, playerState.radius, true) || p.distanceTo(candidate) < 0.6) {
@@ -1867,7 +1827,6 @@ function resetOnFootNearCar() {
   updatePlayerAvatar(0);
 }
 
-<<<<<<< HEAD
 function forceEnterVehicle() {
   clearMoveTarget();
   playerState.inVehicle = true;
@@ -1892,37 +1851,17 @@ function exitVehicle() {
   const rightPos = getCarDoorPosition('right', 0.75);
   const rear = vehicle.position.clone().addScaledVector(vehicleForward(), -4.8);
   const options = [left, rightPos, rear];
-=======
-function enterVehicle() {
-  if (vehicle.speedKmh > 2.5) return;
-  clearMoveTarget();
-  playerState.inVehicle = true;
-  playerAvatar.root.visible = false;
-  playerState.velocity.set(0, 0, 0);
-  updateHud();
-}
-
-function exitVehicle() {
-  const left = getCarDoorPosition('left');
-  const rightPos = getCarDoorPosition('right');
-  const options = [left, rightPos, vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
   for (const option of options) {
     const p = option.clone();
     resolveCircleCollisions(p, playerState.radius, true);
-<<<<<<< HEAD
     if (p.distanceTo(option) < 1.15) {
-=======
-    if (p.distanceTo(option) < 0.8) {
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
       playerState.position.copy(p);
       playerState.position.y = 0;
       playerState.heading = vehicle.heading + Math.PI * 0.5;
       playerState.velocity.set(0, 0, 0);
       clearMoveTarget();
       playerState.inVehicle = false;
-<<<<<<< HEAD
       playerState.transitionLock = 0.42;
       playerAvatar.root.visible = playerState.cameraMode === 'third';
       updatePlayerAvatar(0);
@@ -1940,19 +1879,10 @@ function exitVehicle() {
   snapCameraToControlledEntity();
   updateHud();
   return true;
-=======
-      playerAvatar.root.visible = playerState.cameraMode === 'third';
-      updatePlayerAvatar(0);
-      updateHud();
-      return;
-    }
-  }
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function handleInteract() {
   if (!gameStarted) return;
-<<<<<<< HEAD
   if (hubState.open) {
     closeHubOverlay();
     return;
@@ -1977,16 +1907,6 @@ function handleInteract() {
   if (canOpenHub()) {
     openHubOverlay('Home hub open. Pick a mode or switch cars.');
   }
-=======
-  if (playerState.inVehicle) {
-    if (vehicle.speedKmh < 3) exitVehicle();
-    return;
-  }
-  const doorLeft = getCarDoorPosition('left');
-  const doorRight = getCarDoorPosition('right');
-  const nearDoor = Math.min(playerState.position.distanceTo(doorLeft), playerState.position.distanceTo(doorRight));
-  if (nearDoor < 2.7 && vehicle.speedKmh < 3) enterVehicle();
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function toggleCameraMode() {
@@ -2325,7 +2245,6 @@ function updateHud() {
   gearValue.textContent = playerState.inVehicle ? vehicle.gear : 'ON';
   modeValue.textContent = playerState.inVehicle ? 'Driving' : 'On foot';
   cameraValue.textContent = playerState.cameraMode === 'third' ? 'Third person' : 'First person';
-<<<<<<< HEAD
   carValue.textContent = getCurrentCarName();
   garageValue.textContent = `${getUnlockedCars().length} / ${carPresets.length}`;
 
@@ -2340,8 +2259,6 @@ function updateHud() {
       : 'E to open home hub · Shift sprint · Tap ground to move';
     return;
   }
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
   if (playerState.inVehicle) {
     interactionHint.textContent = vehicle.speedKmh < 3 ? 'E to exit car · C camera · H horn' : 'Slow down to exit · C camera · H horn';
@@ -2404,11 +2321,7 @@ function buildPedestrianSystem() {
   for (const x of roadCenters) {
     const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
     for (const offset of sidewalkOffsets) {
-<<<<<<< HEAD
       for (let i = 0; i < performanceProfile.pedestriansPerSidewalk; i++) {
-=======
-      for (let i = 0; i < 3; i++) {
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
         const scalar = -worldHalf + 38 + i * 190 + hash2(x + offset, i + 20) * 42;
         createPedestrian('z', x + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
       }
@@ -2418,11 +2331,7 @@ function buildPedestrianSystem() {
   for (const z of roadCenters) {
     const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
     for (const offset of sidewalkOffsets) {
-<<<<<<< HEAD
       for (let i = 0; i < performanceProfile.pedestriansPerSidewalk; i++) {
-=======
-      for (let i = 0; i < 3; i++) {
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
         const scalar = -worldHalf + 52 + i * 180 + hash2(z + offset, i + 40) * 45;
         createPedestrian('x', z + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
       }
@@ -2455,23 +2364,17 @@ function updatePedestrianTransform(pedestrian, dt) {
 
 function updatePedestrians(dt) {
   const threatPos = playerState.inVehicle ? vehicle.position : playerState.position;
-<<<<<<< HEAD
   const focus = getActiveFocusPosition();
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   const threatVelocity = playerState.inVehicle ? vehicle.velocity : playerState.velocity;
   const threatSpeed = threatVelocity.length();
   const hornInfluence = input.horn && playerState.inVehicle;
 
   for (const pedestrian of pedestrians) {
     const pos = getPedestrianWorldPosition(pedestrian);
-<<<<<<< HEAD
     const focusDx = pos.x - focus.x;
     const focusDz = pos.z - focus.z;
     const nearFocus = focusDx * focusDx + focusDz * focusDz < performanceProfile.aiUpdateRadius * performanceProfile.aiUpdateRadius;
     if (performanceProfile.lowProfile && !nearFocus && (frameIndex & 1) === 1) continue;
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     const dx = pos.x - threatPos.x;
     const dz = pos.z - threatPos.z;
     const dist = Math.hypot(dx, dz);
@@ -3145,13 +3048,10 @@ function drawMinimap() {
   ctx.fillStyle = 'rgba(147, 199, 255, 0.82)';
   for (const pedestrian of pedestrians) {
     const pos = getPedestrianWorldPosition(pedestrian);
-<<<<<<< HEAD
     const focusDx = pos.x - focus.x;
     const focusDz = pos.z - focus.z;
     const nearFocus = focusDx * focusDx + focusDz * focusDz < performanceProfile.aiUpdateRadius * performanceProfile.aiUpdateRadius;
     if (performanceProfile.lowProfile && !nearFocus && (frameIndex & 1) === 1) continue;
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     if (Math.abs(pos.x - originX) > minimapRange || Math.abs(pos.z - originZ) > minimapRange) continue;
     const p = mapWorldToMinimap(pos.x, pos.z, originX, originZ, scale);
     ctx.beginPath();
@@ -3229,7 +3129,6 @@ function drawMinimap() {
       ctx.fill();
       ctx.restore();
     }
-<<<<<<< HEAD
   }
 
   const hubVisible = Math.abs(homeHub.position.x - originX) <= minimapRange && Math.abs(homeHub.position.z - originZ) <= minimapRange;
@@ -3246,8 +3145,6 @@ function drawMinimap() {
     ctx.closePath();
     ctx.fill();
     ctx.restore();
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   }
 
   const cx = width * 0.5;
@@ -3349,10 +3246,7 @@ syncSelectedCarToUnlocks();
 applyCarPreset(progression.selectedCarId, true);
 resizeMinimapCanvas();
 updateMobileUi();
-<<<<<<< HEAD
 refreshHubUi();
-=======
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 loading.classList.remove('visible');
 
 // ------------------------------------------------------------
@@ -3387,7 +3281,6 @@ function animate() {
   if (gameStarted) {
     syncControlState(dt);
     updateTraffic(dt);
-<<<<<<< HEAD
     updatePedestrians(dt);
     updateHomeHubVisual(dt);
     if (!hubState.open) {
@@ -3404,18 +3297,6 @@ function animate() {
     }
     updateCamera(dt);
     if (performanceProfile.minimapFrameSkip === 0 || (frameIndex % (performanceProfile.minimapFrameSkip + 1)) === 0) drawMinimap();
-=======
-    if (playerState.inVehicle) {
-      updateVehicle(dt);
-    } else {
-      updateOnFoot(dt);
-    }
-    updatePedestrians(dt);
-    updateMission(dt);
-    updateCamera(dt);
-    drawMinimap();
-    playerState.hornPulse = damp(playerState.hornPulse, input.horn ? 1 : 0, input.horn ? 10 : 5, dt);
->>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   } else {
     const idleTarget = new THREE.Vector3(vehicle.position.x - 6, 4.4, vehicle.position.z + 8);
     camera.position.lerp(idleTarget, 0.02);
