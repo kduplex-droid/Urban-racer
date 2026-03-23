@@ -136,10 +136,10 @@ window.addEventListener('keydown', (event) => {
     case 'KeyS':
       input.brake = true;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.left = true;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.right = true;
       break;
     case 'Space':
@@ -178,10 +178,10 @@ window.addEventListener('keyup', (event) => {
     case 'KeyS':
       input.brake = false;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.left = false;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.right = false;
       break;
     case 'Space':
