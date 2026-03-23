@@ -1055,6 +1055,7 @@ const vehicle = {
   velocity: new THREE.Vector3(),
   heading: Math.PI,
   steer: 0,
+  yawRate: 0,
   wheelSpin: 0,
   bodyRoll: 0,
   bodyPitch: 0,
@@ -1075,7 +1076,9 @@ const vehicle = {
   sideGripHandbrake: 3.5,
   maxSteer: 0.48,
   steerSpeed: 3.0,
-  steerReturnSpeed: 4.0
+  steerCrossSpeed: 1.9,
+  steerReturnSpeed: 3.8,
+  yawResponse: 5.6
 };
 
 function resetVehicle() {
@@ -1083,6 +1086,7 @@ function resetVehicle() {
   vehicle.velocity.set(0, 0, 0);
   vehicle.heading = Math.PI;
   vehicle.steer = 0;
+  vehicle.yawRate = 0;
   vehicle.wheelSpin = 0;
   vehicle.bodyRoll = 0;
   vehicle.bodyPitch = 0;
@@ -1268,10 +1272,13 @@ function updateVehicle(dt) {
 
   const speedFactor = clamp(absForwardSpeed / 34, 0, 1);
   const targetSteer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-  const steeringLimit = lerp(vehicle.maxSteer, vehicle.maxSteer * 0.45, speedFactor);
+  const steeringLimit = lerp(vehicle.maxSteer, vehicle.maxSteer * 0.56, speedFactor);
+  const desiredSteer = targetSteer * steeringLimit;
+  const isDirectionFlip = targetSteer !== 0 && Math.sign(desiredSteer) !== Math.sign(vehicle.steer) && Math.abs(vehicle.steer) > 0.045;
 
   if (targetSteer !== 0) {
-    vehicle.steer = damp(vehicle.steer, targetSteer * steeringLimit, vehicle.steerSpeed, dt);
+    const steerRate = isDirectionFlip ? vehicle.steerCrossSpeed : vehicle.steerSpeed;
+    vehicle.steer = damp(vehicle.steer, desiredSteer, steerRate, dt);
   } else {
     vehicle.steer = damp(vehicle.steer, 0, vehicle.steerReturnSpeed, dt);
   }
@@ -1302,8 +1309,11 @@ function updateVehicle(dt) {
   vehicle.velocity.multiplyScalar(1 - clamp(dt * 0.065, 0, 0.065));
 
   const turnStrength = Math.tan(vehicle.steer) / vehicle.wheelBase;
-  const turnAssist = lerp(0.45, 1, clamp(absForwardSpeed / 7, 0, 1));
-  vehicle.heading -= forwardSpeed * turnStrength * turnAssist * dt;
+  const turnAssist = lerp(0.42, 0.96, clamp(absForwardSpeed / 9, 0, 1));
+  const targetYawRate = -forwardSpeed * turnStrength * turnAssist;
+  const yawResponse = lerp(vehicle.yawResponse * 1.1, vehicle.yawResponse * 0.82, speedFactor);
+  vehicle.yawRate = damp(vehicle.yawRate, targetYawRate, yawResponse, dt);
+  vehicle.heading += vehicle.yawRate * dt;
 
   const move = vehicle.velocity.clone().multiplyScalar(dt);
   const steps = clamp(Math.ceil(move.length() / 0.55), 1, 10);
@@ -1323,16 +1333,16 @@ function updateVehicle(dt) {
   const forwardAccel = (currentForwardSpeed - vehicle.lastForwardSpeed) / Math.max(dt, 0.0001);
   vehicle.lastForwardSpeed = currentForwardSpeed;
 
-  const targetRoll = clamp(-vehicle.steer * absForwardSpeed * 0.045 + lateralSpeed * 0.004, -0.09, 0.09);
+  const targetRoll = clamp(-vehicle.steer * absForwardSpeed * 0.043 + lateralSpeed * 0.0035, -0.085, 0.085);
   const targetPitch = clamp(-forwardAccel * 0.0035, -0.05, 0.05);
   vehicle.bodyRoll = damp(vehicle.bodyRoll, targetRoll, 8.0, dt);
   vehicle.bodyPitch = damp(vehicle.bodyPitch, targetPitch, 7.0, dt);
 
-  const suspensionTarget = clamp(Math.abs(lateralSpeed) * 0.0013 + Math.abs(forwardAccel) * 0.00025, 0, 0.026);
+  const suspensionTarget = clamp(Math.abs(lateralSpeed) * 0.0012 + Math.abs(forwardAccel) * 0.00024, 0, 0.024);
   vehicle.suspensionVelocity += (suspensionTarget - vehicle.suspensionOffset) * 26 * dt;
   vehicle.suspensionVelocity *= Math.exp(-11 * dt);
   vehicle.suspensionOffset += vehicle.suspensionVelocity * dt;
-  vehicle.suspensionOffset = clamp(vehicle.suspensionOffset, 0, 0.028);
+  vehicle.suspensionOffset = clamp(vehicle.suspensionOffset, 0, 0.026);
 
   vehicle.speedKmh = Math.abs(currentForwardSpeed) * 3.6;
   vehicle.wheelSpin += currentForwardSpeed * dt / 0.42;
@@ -1387,9 +1397,11 @@ missionMarker.visible = false;
 
 const missionDefinitions = [
   {
+    type: 'route',
     title: 'Downtown Sprint',
-    description: 'Run the downtown line and hit each marked checkpoint in order.',
+    description: 'Run the downtown line and hit each checkpoint in order.',
     timeLimit: 105,
+    checkpointLabels: ['Start Gate', 'West Block', 'South Turn', 'Return Gate'],
     checkpoints: [
       new THREE.Vector3(0, 0, 90),
       new THREE.Vector3(-120, 0, 90),
@@ -1398,25 +1410,65 @@ const missionDefinitions = [
     ]
   },
   {
-    title: 'Cross-Town Delivery',
-    description: 'Swing across the grid and reach the outer block before time expires.',
-    timeLimit: 125,
+    type: 'delivery',
+    title: 'Courier Shift',
+    description: 'Pick up the parcel downtown, then deliver it to the north blocks.',
+    timeLimit: 118,
+    checkpointLabels: ['Pickup', 'Cut Across', 'Drop-off'],
     checkpoints: [
-      new THREE.Vector3(120, 0, -30),
-      new THREE.Vector3(240, 0, -30),
-      new THREE.Vector3(240, 0, 120),
-      new THREE.Vector3(120, 0, 120)
+      new THREE.Vector3(-120, 0, 90),
+      new THREE.Vector3(0, 0, 90),
+      new THREE.Vector3(120, 0, 210)
     ]
   },
   {
+    type: 'speedTrap',
+    title: 'Boulevard Speed Trap',
+    description: 'Build speed on the avenue and hit the camera fast enough.',
+    timeLimit: 82,
+    minSpeedKmh: 72,
+    checkpointLabels: ['Approach', 'Speed Trap'],
+    checkpoints: [
+      new THREE.Vector3(-240, 0, -30),
+      new THREE.Vector3(120, 0, -30)
+    ]
+  },
+  {
+    type: 'precisionStop',
+    title: 'Precision Parking',
+    description: 'Slide into the marked bay and stop the car cleanly inside the zone.',
+    timeLimit: 70,
+    maxEntrySpeedKmh: 8,
+    checkpointLabels: ['Parking Bay'],
+    checkpoints: [
+      new THREE.Vector3(240, 0, 90)
+    ]
+  },
+  {
+    type: 'route',
     title: 'Ring Road Run',
     description: 'Complete the long perimeter route cleanly.',
     timeLimit: 170,
+    checkpointLabels: ['North-East', 'North-West', 'South-West', 'South-East'],
     checkpoints: [
       new THREE.Vector3(240, 0, 240),
       new THREE.Vector3(-240, 0, 240),
       new THREE.Vector3(-240, 0, -240),
       new THREE.Vector3(240, 0, -240)
+    ]
+  },
+  {
+    type: 'route',
+    title: 'City Grand Tour',
+    description: 'String together a full cross-city run without wasting time.',
+    timeLimit: 188,
+    checkpointLabels: ['East Gate', 'Central Square', 'West Dip', 'North Lift', 'Finish'],
+    checkpoints: [
+      new THREE.Vector3(240, 0, 120),
+      new THREE.Vector3(120, 0, 0),
+      new THREE.Vector3(-120, 0, -120),
+      new THREE.Vector3(-120, 0, 120),
+      new THREE.Vector3(0, 0, 240)
     ]
   }
 ];
@@ -1427,58 +1479,92 @@ const missionState = {
   active: false,
   completedLoopCount: 0,
   timeLeft: 0,
+  checkpointCooldown: 0,
   message: 'Press Play to start driving.'
 };
 
-function startMission(index) {
+function getCurrentMission() {
+  return missionDefinitions[missionState.currentMissionIndex];
+}
+
+function getCurrentCheckpoint() {
+  return getCurrentMission().checkpoints[missionState.currentCheckpointIndex];
+}
+
+function getCurrentCheckpointLabel() {
+  const mission = getCurrentMission();
+  return mission.checkpointLabels?.[missionState.currentCheckpointIndex] || `Checkpoint ${missionState.currentCheckpointIndex + 1}`;
+}
+
+function getMissionRequirementText(mission) {
+  if (mission.type === 'speedTrap') return `Hit the trap at ${mission.minSpeedKmh}+ km/h`;
+  if (mission.type === 'precisionStop') return `Enter under ${mission.maxEntrySpeedKmh} km/h`;
+  if (mission.type === 'delivery') return 'Keep the line clean and make the drop on time';
+  return 'Stay clean and keep the route flowing';
+}
+
+function startMission(index, introMessage = null) {
   const mission = missionDefinitions[index % missionDefinitions.length];
   missionState.currentMissionIndex = index % missionDefinitions.length;
   missionState.currentCheckpointIndex = 0;
   missionState.active = true;
   missionState.timeLeft = mission.timeLimit;
-  missionState.message = mission.description;
+  missionState.checkpointCooldown = 0;
+  missionState.message = introMessage || mission.description;
   missionMarker.visible = true;
   placeMissionMarker();
   updateMissionHud();
 }
 
 function placeMissionMarker() {
-  const mission = missionDefinitions[missionState.currentMissionIndex];
-  const checkpoint = mission.checkpoints[missionState.currentCheckpointIndex];
+  const checkpoint = getCurrentCheckpoint();
   missionMarker.position.set(checkpoint.x, 0.4, checkpoint.z);
 }
 
-function advanceMission() {
-  const mission = missionDefinitions[missionState.currentMissionIndex];
+function completeMission(completionText) {
+  let nextIndex = (missionState.currentMissionIndex + 1) % missionDefinitions.length;
+  if (nextIndex === 0) missionState.completedLoopCount += 1;
+  const nextMission = missionDefinitions[nextIndex];
+  startMission(nextIndex, `${completionText} ${nextMission.description}`);
+}
+
+function advanceMission(stageMessage = null) {
+  const mission = getCurrentMission();
   missionState.currentCheckpointIndex += 1;
+  missionState.checkpointCooldown = 0.45;
 
   if (missionState.currentCheckpointIndex >= mission.checkpoints.length) {
-    missionState.currentMissionIndex = (missionState.currentMissionIndex + 1) % missionDefinitions.length;
-    if (missionState.currentMissionIndex === 0) missionState.completedLoopCount += 1;
-    missionState.message = 'Route complete. Next mission loaded.';
-    startMission(missionState.currentMissionIndex);
+    const completionText = mission.type === 'delivery'
+      ? 'Delivery complete. Next contract loaded.'
+      : mission.type === 'precisionStop'
+        ? 'Parking job complete. New mission loaded.'
+        : mission.type === 'speedTrap'
+          ? 'Speed trap cleared. New challenge loaded.'
+          : 'Route complete. Next mission loaded.';
+    completeMission(completionText);
     return;
   }
 
+  missionState.message = stageMessage || mission.description;
   placeMissionMarker();
   updateMissionHud();
 }
 
-function failMission() {
-  missionState.message = 'Time expired. Mission restarted.';
-  startMission(missionState.currentMissionIndex);
+function failMission(reason = 'Time expired. Mission restarted.') {
+  startMission(missionState.currentMissionIndex, reason);
 }
 
 function updateMission(dt) {
   if (!missionState.active) return;
 
-  const mission = missionDefinitions[missionState.currentMissionIndex];
-  const checkpoint = mission.checkpoints[missionState.currentCheckpointIndex];
+  const mission = getCurrentMission();
+  const checkpoint = getCurrentCheckpoint();
   const dx = checkpoint.x - vehicle.position.x;
   const dz = checkpoint.z - vehicle.position.z;
   const distance = Math.hypot(dx, dz);
 
   missionState.timeLeft -= dt;
+  missionState.checkpointCooldown = Math.max(0, missionState.checkpointCooldown - dt);
   if (missionState.timeLeft <= 0) {
     failMission();
     return;
@@ -1487,8 +1573,24 @@ function updateMission(dt) {
   missionRing.rotation.z += dt * 0.85;
   missionBeam.material.opacity = 0.16 + (Math.sin(performance.now() * 0.004) * 0.04 + 0.04);
 
-  if (distance < 8.5) {
-    advanceMission();
+  if (distance < 8.5 && missionState.checkpointCooldown <= 0) {
+    if (mission.type === 'speedTrap' && missionState.currentCheckpointIndex === mission.checkpoints.length - 1) {
+      if (vehicle.speedKmh >= mission.minSpeedKmh) {
+        advanceMission(`Speed trap hit at ${Math.round(vehicle.speedKmh)} km/h.`);
+      } else {
+        missionState.message = `Too slow. Need ${mission.minSpeedKmh} km/h, you had ${Math.round(vehicle.speedKmh)} km/h.`;
+        missionState.checkpointCooldown = 0.7;
+      }
+    } else if (mission.type === 'precisionStop') {
+      if (vehicle.speedKmh <= mission.maxEntrySpeedKmh) {
+        advanceMission(`Clean park at ${Math.round(vehicle.speedKmh)} km/h.`);
+      } else {
+        missionState.message = `Slow it down. Enter the bay under ${mission.maxEntrySpeedKmh} km/h.`;
+        missionState.checkpointCooldown = 0.7;
+      }
+    } else {
+      advanceMission(`${getCurrentCheckpointLabel()} reached.`);
+    }
     return;
   }
 
@@ -1503,12 +1605,16 @@ function updateMissionHud(distance = null) {
     return;
   }
 
-  const mission = missionDefinitions[missionState.currentMissionIndex];
+  const mission = getCurrentMission();
+  const checkpointLabel = getCurrentCheckpointLabel();
   missionTitle.textContent = mission.title;
   missionText.textContent = missionState.message || mission.description;
-  const checkpointLabel = `${missionState.currentCheckpointIndex + 1}/${mission.checkpoints.length}`;
+
+  const checkpointIndex = missionState.currentCheckpointIndex + 1;
+  const checkpointText = `${checkpointLabel} ${checkpointIndex}/${mission.checkpoints.length}`;
   const distanceText = distance == null ? '--' : `${Math.round(distance)} m`;
-  missionMeta.textContent = `Checkpoint ${checkpointLabel} · ${distanceText} · ${missionState.timeLeft.toFixed(0)}s`;
+  const requirementText = getMissionRequirementText(mission);
+  missionMeta.textContent = `${checkpointText} · ${distanceText} · ${requirementText} · ${missionState.timeLeft.toFixed(0)}s`;
 }
 
 // ------------------------------------------------------------
@@ -1614,46 +1720,25 @@ function drawMinimap() {
     ctx.stroke();
   }
 
-const cx = width * 0.5;
-const cy = height * 0.5;
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(Math.PI - vehicle.heading);
+  ctx.fillStyle = '#ff5f5f';
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(8, 10);
+  ctx.lineTo(0, 5);
+  ctx.lineTo(-8, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 
-ctx.save();
-ctx.translate(cx, cy);
-ctx.rotate(-vehicle.heading);
-
-// car body
-ctx.fillStyle = '#ff5f5f';
-ctx.strokeStyle = '#111';
-ctx.lineWidth = 1.5;
-
-ctx.beginPath();
-ctx.roundRect(-7, -13, 14, 26, 4);
-ctx.fill();
-ctx.stroke();
-
-// windshield / roof
-ctx.fillStyle = '#d9f3ff';
-ctx.beginPath();
-ctx.roundRect(-4.5, -7, 9, 10, 2);
-ctx.fill();
-
-// heading marker at the front
-ctx.fillStyle = '#ffffff';
-ctx.beginPath();
-ctx.moveTo(0, -16);
-ctx.lineTo(4, -10);
-ctx.lineTo(-4, -10);
-ctx.closePath();
-ctx.fill();
-
-// wheels
-ctx.fillStyle = '#1a1a1a';
-ctx.fillRect(-9, -10, 2.5, 6);
-ctx.fillRect(6.5, -10, 2.5, 6);
-ctx.fillRect(-9, 4, 2.5, 6);
-ctx.fillRect(6.5, 4, 2.5, 6);
-
-ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, width - 2, height - 2);
+}
 
 // ------------------------------------------------------------
 // World bootstrapping
