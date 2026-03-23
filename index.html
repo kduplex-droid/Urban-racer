@@ -15,35 +15,32 @@
         <p class="eyebrow">Three.js browser driving prototype</p>
         <h1>Urban Drive</h1>
         <p class="menu-copy">
-          Drive a modern sport coupe through a stylized city with smoother handling, lane traffic,
-          world collisions, missions, and a retractable mini map.
+          Drive, get out on foot, switch camera views, and run city missions in a stylized urban sandbox.
         </p>
 
         <div class="menu-grid">
           <div>
-            <span class="label">Controls</span>
+            <span class="label">Vehicle controls</span>
             <ul>
-              <li><strong>W</strong> accelerate</li>
-              <li><strong>S</strong> brake / reverse</li>
-              <li><strong>A / D</strong> steer</li>
+              <li><strong>W</strong> accelerate / walk forward</li>
+              <li><strong>S</strong> brake / reverse / walk back</li>
+              <li><strong>A / D</strong> steer / strafe</li>
               <li><strong>Space</strong> handbrake</li>
-              <li><strong>M</strong> toggle mini map</li>
-              <li><strong>R</strong> reset car</li>
             </ul>
           </div>
           <div>
-            <span class="label">Systems</span>
+            <span class="label">Interaction</span>
             <ul>
-              <li>Lane-based traffic</li>
-              <li>Mission checkpoints</li>
-              <li>Third-person follow camera</li>
-              <li>Obstacle and vehicle collisions</li>
+              <li><strong>E</strong> enter / exit car</li>
+              <li><strong>C</strong> switch first / third person</li>
+              <li><strong>Shift</strong> sprint on foot</li>
+              <li><strong>H</strong> horn</li>
             </ul>
           </div>
         </div>
 
         <button id="playButton" class="play-button">Play</button>
-        <p class="menu-note">Best run from a local server such as VS Code Live Server.</p>
+        <p class="menu-note">Run from a local server such as VS Code Live Server for best results.</p>
       </div>
     </div>
 
@@ -63,31 +60,66 @@
         </div>
       </div>
 
-      <div id="missionPanel" class="mission-panel panel">
+      <div id="missionPanel" class="panel mission-panel">
         <div class="mini-title">Mission</div>
         <div id="missionTitle" class="mission-title">Get rolling</div>
-        <div id="missionText" class="mission-text">Press Play to start driving.</div>
+        <div id="missionText" class="mission-text">Drive to the marker.</div>
         <div id="missionMeta" class="mission-meta">Checkpoint —</div>
+      </div>
+
+      <div id="statePanel" class="panel state-panel">
+        <div class="mini-title">State</div>
+        <div class="state-row"><span>Mode</span><strong id="modeValue">Driving</strong></div>
+        <div class="state-row"><span>Camera</span><strong id="cameraValue">Third person</strong></div>
+        <div id="interactionHint" class="interaction-hint">E near car to exit</div>
       </div>
 
       <div class="hud-right panel controls-panel">
         <div class="mini-title">Controls</div>
         <div class="controls-list">
-          <span>W accelerate</span>
-          <span>S brake / reverse</span>
-          <span>A/D steer</span>
+          <span>W/S accelerate or walk</span>
+          <span>A/D steer or strafe</span>
           <span>Space handbrake</span>
+          <span>E enter / exit</span>
+          <span>C camera view</span>
+          <span>Shift sprint</span>
+          <span>H horn</span>
           <span>M mini map</span>
           <span>R reset car</span>
+          <span>Tap ground to move on foot</span>
+          <span>Touch buttons on mobile</span>
         </div>
       </div>
 
-      <div id="minimapPanel" class="minimap-panel panel">
+      <div id="minimapPanel" class="panel minimap-panel">
         <div class="minimap-header">
           <div class="mini-title">Mini map</div>
-          <button id="minimapToggle" class="mini-toggle" type="button">Hide</button>
+          <button id="minimapToggle" class="mini-button" type="button">Hide</button>
         </div>
-        <canvas id="minimapCanvas" width="240" height="240"></canvas>
+        <canvas id="minimapCanvas"></canvas>
+      </div>
+    </div>
+
+
+    <div id="mobileControls" class="mobile-controls hidden" aria-label="Touch controls">
+      <div class="touch-cluster touch-drive">
+        <button class="touch-btn touch-btn-dir" data-hold="accelerate" aria-label="Accelerate">▲</button>
+        <div class="touch-row">
+          <button class="touch-btn touch-btn-dir" data-hold="left" aria-label="Steer left">◀</button>
+          <button class="touch-btn touch-btn-dir" data-hold="right" aria-label="Steer right">▶</button>
+        </div>
+        <button class="touch-btn touch-btn-dir" data-hold="brake" aria-label="Brake or reverse">▼</button>
+      </div>
+
+      <div class="touch-cluster touch-actions">
+        <div class="touch-action-grid">
+          <button class="touch-btn touch-btn-action" data-hold="handbrake" aria-label="Handbrake">HB</button>
+          <button class="touch-btn touch-btn-action" data-hold="sprint" aria-label="Run">RUN</button>
+          <button class="touch-btn touch-btn-action" data-tap="interact" aria-label="Enter or exit">E</button>
+          <button class="touch-btn touch-btn-action" data-tap="camera" aria-label="Switch camera">C</button>
+          <button class="touch-btn touch-btn-action" data-hold="horn" aria-label="Horn">H</button>
+          <button class="touch-btn touch-btn-action" data-tap="minimap" aria-label="Toggle mini map">MAP</button>
+        </div>
       </div>
     </div>
 

@@ -1,24 +1,37 @@
-Urban Drive - Browser Car Game
+Urban Drive Prototype v6
 
-Files:
-- index.html
-- style.css
-- script.js
+Run locally from a web server:
+- VS Code Live Server, or
+- python -m http.server 8000
 
-Run:
-1. Open the folder in VS Code and start Live Server.
-   OR
-2. In a terminal inside the folder, run:
-   python -m http.server 8000
-   Then open http://localhost:8000 in your browser.
+Then open:
+http://localhost:8000
 
-Controls:
-- W = accelerate
-- S = brake / reverse
-- A = steer left
-- D = steer right
-- Space = handbrake
+Controls
+Vehicle:
+- W accelerate
+- S brake / reverse
+- A / D steer
+- Space handbrake
+- H horn
+- E exit car when nearly stopped
+- C switch first / third person camera
+- M toggle mini map
+- R reset car
 
-Notes:
-- The game uses Three.js from a CDN, so an internet connection is needed.
-- A local server is recommended because browsers can restrict module loading from file:// URLs.
+On foot:
+- W / A / S / D move
+- Shift sprint
+- Click or tap the ground to place a follow marker
+- E enter car when near the driver side
+- C switch first / third person camera
+
+Mobile:
+- Left touch cluster: accelerate, brake, left, right
+- Right touch cluster: handbrake, run, interact, camera, horn, mini map
+- Tap the world while on foot to move toward the marker
+
+Notes
+- Pedestrians use lightweight browser-friendly movement and reaction logic.
+- Missions remain vehicle-focused.
+- Use a local server for the best results.

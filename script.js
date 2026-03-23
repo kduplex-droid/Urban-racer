@@ -3,6 +3,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.m
 // ------------------------------------------------------------
 // DOM
 // ------------------------------------------------------------
+const app = document.getElementById('app');
 const canvas = document.getElementById('gameCanvas');
 const playButton = document.getElementById('playButton');
 const menu = document.getElementById('menu');
@@ -10,6 +11,9 @@ const hud = document.getElementById('hud');
 const loading = document.getElementById('loading');
 const speedValue = document.getElementById('speedValue');
 const gearValue = document.getElementById('gearValue');
+const modeValue = document.getElementById('modeValue');
+const cameraValue = document.getElementById('cameraValue');
+const interactionHint = document.getElementById('interactionHint');
 const missionTitle = document.getElementById('missionTitle');
 const missionText = document.getElementById('missionText');
 const missionMeta = document.getElementById('missionMeta');
@@ -17,6 +21,8 @@ const minimapPanel = document.getElementById('minimapPanel');
 const minimapCanvas = document.getElementById('minimapCanvas');
 const minimapToggle = document.getElementById('minimapToggle');
 const minimapCtx = minimapCanvas.getContext('2d');
+const mobileControls = document.getElementById('mobileControls');
+const touchButtons = [...document.querySelectorAll('.touch-btn')];
 
 // ------------------------------------------------------------
 // Core Three.js setup
@@ -49,6 +55,7 @@ const clock = new THREE.Clock();
 // ------------------------------------------------------------
 const obstacles = [];
 const trafficCars = [];
+const pedestrians = [];
 const trafficLightVisuals = [];
 const trafficSignalState = {
   elapsed: 0,
@@ -95,6 +102,9 @@ const materials = {
 
 const tmpVecA = new THREE.Vector3();
 const tmpVecB = new THREE.Vector3();
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const pointerNdc = new THREE.Vector2();
 
 // ------------------------------------------------------------
 // Input state
@@ -104,15 +114,18 @@ const input = {
   brake: false,
   left: false,
   right: false,
-  handbrake: false
+  handbrake: false,
+  sprint: false,
+  horn: false
 };
 
 const uiState = {
-  minimapCollapsed: false
+  minimapCollapsed: false,
+  mobileControlsVisible: false
 };
 
 window.addEventListener('keydown', (event) => {
-  if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyM', 'KeyR'].includes(event.code)) {
+  if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyM', 'KeyR', 'KeyE', 'KeyC', 'KeyH', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
     event.preventDefault();
   }
 
@@ -123,20 +136,36 @@ window.addEventListener('keydown', (event) => {
     case 'KeyS':
       input.brake = true;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.left = true;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.right = true;
       break;
     case 'Space':
       input.handbrake = true;
       break;
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      input.sprint = true;
+      break;
+    case 'KeyH':
+      input.horn = true;
+      break;
     case 'KeyM':
-      toggleMinimap();
+      if (!event.repeat) toggleMinimap();
       break;
     case 'KeyR':
-      resetVehicle();
+      if (!event.repeat) {
+        if (playerState?.inVehicle) resetVehicle();
+        else resetOnFootNearCar();
+      }
+      break;
+    case 'KeyE':
+      if (!event.repeat) handleInteract();
+      break;
+    case 'KeyC':
+      if (!event.repeat) toggleCameraMode();
       break;
   }
 });
@@ -149,19 +178,87 @@ window.addEventListener('keyup', (event) => {
     case 'KeyS':
       input.brake = false;
       break;
-    case 'KeyD':
+    case 'KeyA':
       input.left = false;
       break;
-    case 'KeyA':
+    case 'KeyD':
       input.right = false;
       break;
     case 'Space':
       input.handbrake = false;
       break;
+    case 'ShiftLeft':
+    case 'ShiftRight':
+      input.sprint = false;
+      break;
+    case 'KeyH':
+      input.horn = false;
+      break;
   }
 });
 
+canvas.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  if (setMoveTargetFromScreen(event.clientX, event.clientY)) {
+    event.preventDefault();
+  }
+}, { passive: false });
+
+
 minimapToggle.addEventListener('click', toggleMinimap);
+
+function updateMobileUi() {
+  const wantsTouchUi = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 900;
+  uiState.mobileControlsVisible = wantsTouchUi;
+  document.body.classList.toggle('mobile-ui', wantsTouchUi);
+  mobileControls.classList.toggle('hidden', !wantsTouchUi);
+}
+
+function runTouchAction(action) {
+  if (!gameStarted) return;
+  if (action === 'interact') handleInteract();
+  else if (action === 'camera') toggleCameraMode();
+  else if (action === 'minimap') toggleMinimap();
+}
+
+function setHeldInput(name, active, button) {
+  if (!(name in input)) return;
+  input[name] = active;
+  if (button) button.classList.toggle('active', active);
+}
+
+for (const button of touchButtons) {
+  const hold = button.dataset.hold;
+  const tap = button.dataset.tap;
+
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (button.setPointerCapture) {
+      try { button.setPointerCapture(event.pointerId); } catch (error) {}
+    }
+    if (hold) setHeldInput(hold, true, button);
+  }, { passive: false });
+
+  const release = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (hold) setHeldInput(hold, false, button);
+  };
+
+  button.addEventListener('pointerup', release, { passive: false });
+  button.addEventListener('pointercancel', release, { passive: false });
+  button.addEventListener('lostpointercapture', release, { passive: false });
+  button.addEventListener('pointerleave', (event) => {
+    if (hold && event.buttons === 0) release(event);
+  });
+
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (tap) runTouchAction(tap);
+  });
+}
 
 // ------------------------------------------------------------
 // Utility helpers
@@ -234,12 +331,104 @@ function resizeMinimapCanvas() {
   minimapCanvas.height = Math.round(cssHeight * scale);
 }
 
+function clearMoveTarget() {
+  playerState.moveTargetActive = false;
+  playerState.moveTargetRun = false;
+  moveCursorMarker.visible = false;
+}
+
+function setMoveTarget(point, shouldRun = false) {
+  playerState.moveTarget.copy(point);
+  playerState.moveTarget.y = 0;
+  playerState.moveTargetActive = true;
+  playerState.moveTargetRun = shouldRun || playerState.position.distanceTo(point) > 14;
+  moveCursorMarker.position.set(point.x, 0.12, point.z);
+  moveCursorMarker.visible = true;
+}
+
+function setMoveTargetFromScreen(clientX, clientY) {
+  if (!gameStarted || playerState.inVehicle) return false;
+  const rect = canvas.getBoundingClientRect();
+  pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointerNdc, camera);
+  const hit = new THREE.Vector3();
+  if (!raycaster.ray.intersectPlane(groundPlane, hit)) return false;
+  hit.x = clamp(hit.x, -worldHalf + 4, worldHalf - 4);
+  hit.z = clamp(hit.z, -worldHalf + 4, worldHalf - 4);
+  setMoveTarget(hit, input.sprint);
+  return true;
+}
+
 function vehicleForward() {
   return new THREE.Vector3(Math.sin(vehicle.heading), 0, Math.cos(vehicle.heading));
 }
 
 function vehicleRight() {
   return new THREE.Vector3(Math.cos(vehicle.heading), 0, -Math.sin(vehicle.heading));
+}
+
+function getActiveFocusPosition() {
+  return playerState?.inVehicle ? vehicle.position : playerState.position;
+}
+
+function getActiveHeading() {
+  return playerState?.inVehicle ? vehicle.heading : playerState.heading;
+}
+
+function pointInsideAABB(x, z, box, radius = 0) {
+  return Math.abs(x - box.x) <= box.halfW + radius && Math.abs(z - box.z) <= box.halfD + radius;
+}
+
+function resolveCircleAgainstAABB(position, radius, box) {
+  const dx = position.x - box.x;
+  const dz = position.z - box.z;
+  const clampedX = clamp(dx, -box.halfW, box.halfW);
+  const clampedZ = clamp(dz, -box.halfD, box.halfD);
+  const nearestX = box.x + clampedX;
+  const nearestZ = box.z + clampedZ;
+  let pushX = position.x - nearestX;
+  let pushZ = position.z - nearestZ;
+  let distSq = pushX * pushX + pushZ * pushZ;
+
+  if (distSq >= radius * radius) return false;
+
+  if (distSq < 1e-8) {
+    const overlapX = box.halfW + radius - Math.abs(dx);
+    const overlapZ = box.halfD + radius - Math.abs(dz);
+    if (overlapX < overlapZ) {
+      pushX = dx >= 0 ? overlapX : -overlapX;
+      pushZ = 0;
+    } else {
+      pushX = 0;
+      pushZ = dz >= 0 ? overlapZ : -overlapZ;
+    }
+  } else {
+    const dist = Math.sqrt(distSq);
+    const overlap = radius - dist;
+    pushX = (pushX / dist) * overlap;
+    pushZ = (pushZ / dist) * overlap;
+  }
+
+  position.x += pushX;
+  position.z += pushZ;
+  return true;
+}
+
+function resolveCircleCollisions(position, radius, includeTraffic = true) {
+  let hit = false;
+  for (const obstacle of obstacles) {
+    hit = resolveCircleAgainstAABB(position, radius, obstacle) || hit;
+  }
+  if (includeTraffic) {
+    for (const car of trafficCars) {
+      hit = resolveCircleAgainstAABB(position, radius, getTrafficAABB(car)) || hit;
+    }
+  }
+  if (typeof playerState !== 'undefined' && !playerState.inVehicle) {
+    hit = resolveCircleAgainstAABB(position, radius, getPlayerCarAABB()) || hit;
+  }
+  return hit;
 }
 
 // ------------------------------------------------------------
@@ -1049,6 +1238,178 @@ function createPlayerCar() {
 
 const playerCar = createPlayerCar();
 
+function createHumanoidMesh(scale = 1, palette = {}) {
+  const group = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({ color: palette.skin || 0xc89273, roughness: 0.92 });
+  const jacket = new THREE.MeshStandardMaterial({ color: palette.jacket || 0x33495f, roughness: 0.88 });
+  const pants = new THREE.MeshStandardMaterial({ color: palette.pants || 0x252a33, roughness: 0.95 });
+  const shoes = new THREE.MeshStandardMaterial({ color: palette.shoes || 0x111111, roughness: 0.98 });
+  const hair = new THREE.MeshStandardMaterial({ color: palette.hair || 0x2a221d, roughness: 0.9 });
+
+  const pelvis = new THREE.Group();
+  group.add(pelvis);
+
+  const hips = makeBox(0.48, 0.26, 0.26, jacket);
+  hips.position.y = 1.0;
+  pelvis.add(hips);
+
+  const torso = makeBox(0.62, 0.82, 0.34, jacket);
+  torso.position.y = 1.58;
+  pelvis.add(torso);
+
+  const chest = makeBox(0.5, 0.22, 0.36, new THREE.MeshStandardMaterial({ color: palette.trim || 0x5b6f86, roughness: 0.85 }));
+  chest.position.set(0, 1.66, 0.18);
+  pelvis.add(chest);
+
+  const neck = makeBox(0.16, 0.12, 0.14, skin);
+  neck.position.y = 2.06;
+  pelvis.add(neck);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), skin);
+  head.position.y = 2.34;
+  pelvis.add(head);
+
+  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.245, 14, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hair);
+  hairCap.position.y = 2.42;
+  pelvis.add(hairCap);
+
+  const shoulderL = new THREE.Group();
+  shoulderL.position.set(-0.39, 1.92, 0);
+  pelvis.add(shoulderL);
+  const shoulderR = new THREE.Group();
+  shoulderR.position.set(0.39, 1.92, 0);
+  pelvis.add(shoulderR);
+
+  const upperArmGeom = new THREE.CapsuleGeometry(0.095, 0.38, 4, 10);
+  const lowerArmGeom = new THREE.CapsuleGeometry(0.08, 0.32, 4, 10);
+  const thighGeom = new THREE.CapsuleGeometry(0.11, 0.48, 4, 10);
+  const calfGeom = new THREE.CapsuleGeometry(0.095, 0.46, 4, 10);
+
+  const upperArmL = new THREE.Mesh(upperArmGeom, jacket);
+  upperArmL.position.y = -0.26;
+  upperArmL.rotation.z = Math.PI;
+  shoulderL.add(upperArmL);
+  const upperArmR = new THREE.Mesh(upperArmGeom, jacket);
+  upperArmR.position.y = -0.26;
+  upperArmR.rotation.z = Math.PI;
+  shoulderR.add(upperArmR);
+
+  const elbowL = new THREE.Group();
+  elbowL.position.y = -0.52;
+  shoulderL.add(elbowL);
+  const elbowR = new THREE.Group();
+  elbowR.position.y = -0.52;
+  shoulderR.add(elbowR);
+
+  const lowerArmL = new THREE.Mesh(lowerArmGeom, skin);
+  lowerArmL.position.y = -0.24;
+  lowerArmL.rotation.z = Math.PI;
+  elbowL.add(lowerArmL);
+  const lowerArmR = new THREE.Mesh(lowerArmGeom, skin);
+  lowerArmR.position.y = -0.24;
+  lowerArmR.rotation.z = Math.PI;
+  elbowR.add(lowerArmR);
+
+  const handL = makeBox(0.1, 0.12, 0.12, skin);
+  handL.position.y = -0.47;
+  elbowL.add(handL);
+  const handR = makeBox(0.1, 0.12, 0.12, skin);
+  handR.position.y = -0.47;
+  elbowR.add(handR);
+
+  const hipL = new THREE.Group();
+  hipL.position.set(-0.16, 0.9, 0);
+  pelvis.add(hipL);
+  const hipR = new THREE.Group();
+  hipR.position.set(0.16, 0.9, 0);
+  pelvis.add(hipR);
+
+  const thighL = new THREE.Mesh(thighGeom, pants);
+  thighL.position.y = -0.34;
+  thighL.rotation.z = Math.PI;
+  hipL.add(thighL);
+  const thighR = new THREE.Mesh(thighGeom, pants);
+  thighR.position.y = -0.34;
+  thighR.rotation.z = Math.PI;
+  hipR.add(thighR);
+
+  const kneeL = new THREE.Group();
+  kneeL.position.y = -0.68;
+  hipL.add(kneeL);
+  const kneeR = new THREE.Group();
+  kneeR.position.y = -0.68;
+  hipR.add(kneeR);
+
+  const calfL = new THREE.Mesh(calfGeom, pants);
+  calfL.position.y = -0.32;
+  calfL.rotation.z = Math.PI;
+  kneeL.add(calfL);
+  const calfR = new THREE.Mesh(calfGeom, pants);
+  calfR.position.y = -0.32;
+  calfR.rotation.z = Math.PI;
+  kneeR.add(calfR);
+
+  const footL = makeBox(0.14, 0.08, 0.28, shoes);
+  footL.position.set(0, -0.68, 0.08);
+  kneeL.add(footL);
+  const footR = makeBox(0.14, 0.08, 0.28, shoes);
+  footR.position.set(0, -0.68, 0.08);
+  kneeR.add(footR);
+
+  group.scale.setScalar(scale);
+  group.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
+  return {
+    root: group,
+    pelvis,
+    shoulders: { left: shoulderL, right: shoulderR },
+    elbows: { left: elbowL, right: elbowR },
+    hips: { left: hipL, right: hipR },
+    knees: { left: kneeL, right: kneeR },
+    head
+  };
+}
+
+const playerAvatar = createHumanoidMesh(0.92, {
+  skin: 0xb98061,
+  jacket: 0x2c4059,
+  trim: 0x6e8fb2,
+  pants: 0x20252f,
+  shoes: 0x101214,
+  hair: 0x251d17
+});
+scene.add(playerAvatar.root);
+playerAvatar.root.visible = false;
+
+const moveCursorMarker = new THREE.Group();
+const moveCursorRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.48, 0.76, 24),
+  new THREE.MeshBasicMaterial({ color: 0x8ff089, transparent: true, opacity: 0.92, side: THREE.DoubleSide })
+);
+moveCursorRing.rotation.x = -Math.PI * 0.5;
+moveCursorMarker.add(moveCursorRing);
+
+const moveCursorArrow = new THREE.Mesh(
+  new THREE.ConeGeometry(0.22, 0.42, 12),
+  new THREE.MeshStandardMaterial({ color: 0xa8ff9f, emissive: 0x5dbb54, emissiveIntensity: 0.4, roughness: 0.45 })
+);
+moveCursorArrow.position.y = 0.34;
+moveCursorMarker.add(moveCursorArrow);
+moveCursorMarker.visible = false;
+scene.add(moveCursorMarker);
+
+const pedestrianPalettes = [
+  { skin: 0xd2a080, jacket: 0x5d748d, trim: 0x829db8, pants: 0x27303b, shoes: 0x121212, hair: 0x2f231b },
+  { skin: 0x8f5d45, jacket: 0x6b5c7e, trim: 0x9d88b8, pants: 0x1c1f28, shoes: 0x121212, hair: 0x1e1714 },
+  { skin: 0xc48d6b, jacket: 0x59735d, trim: 0x7fa282, pants: 0x252b30, shoes: 0x141414, hair: 0x36271f },
+  { skin: 0x6f4635, jacket: 0x6b4b3f, trim: 0x9b7262, pants: 0x252a33, shoes: 0x111111, hair: 0x1a1412 }
+];
+
 const vehicle = {
   spawn: new THREE.Vector3(0, 0, 180),
   position: new THREE.Vector3(0, 0, 180),
@@ -1074,12 +1435,102 @@ const vehicle = {
   aerodynamicDrag: 0.015,
   sideGrip: 12.5,
   sideGripHandbrake: 3.5,
-  maxSteer: 0.48,
-  steerSpeed: 3.0,
-  steerCrossSpeed: 1.9,
-  steerReturnSpeed: 3.8,
-  yawResponse: 5.6
+  maxSteer: 0.53,
+  steerSpeed: 5.4,
+  steerCrossSpeed: 2.35,
+  steerReturnSpeed: 6.0,
+  yawResponse: 5.95
 };
+
+const playerState = {
+  inVehicle: true,
+  position: vehicle.spawn.clone().add(new THREE.Vector3(-2.1, 0, 0.8)),
+  velocity: new THREE.Vector3(),
+  heading: Math.PI,
+  radius: 0.42,
+  walkSpeed: 4.2,
+  sprintSpeed: 8.4,
+  cameraMode: 'third',
+  walkCycle: 0,
+  hornPulse: 0,
+  moveTarget: new THREE.Vector3(),
+  moveTargetActive: false,
+  moveTargetRun: false
+};
+
+function getCarDoorPosition(side = 'left') {
+  const right = vehicleRight();
+  const offset = side === 'left' ? -1.45 : 1.45;
+  return vehicle.position.clone().addScaledVector(right, offset).addScaledVector(vehicleForward(), -0.18);
+}
+
+function resetOnFootNearCar() {
+  const candidates = [getCarDoorPosition('left'), getCarDoorPosition('right'), vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
+  for (const candidate of candidates) {
+    const p = candidate.clone();
+    if (!resolveCircleCollisions(p, playerState.radius, true) || p.distanceTo(candidate) < 0.6) {
+      playerState.position.copy(p);
+      playerState.velocity.set(0, 0, 0);
+      clearMoveTarget();
+      updatePlayerAvatar(0);
+      return;
+    }
+  }
+  playerState.position.copy(vehicle.position).add(new THREE.Vector3(0, 0, -4));
+  playerState.velocity.set(0, 0, 0);
+  clearMoveTarget();
+  updatePlayerAvatar(0);
+}
+
+function enterVehicle() {
+  if (vehicle.speedKmh > 2.5) return;
+  clearMoveTarget();
+  playerState.inVehicle = true;
+  playerAvatar.root.visible = false;
+  playerState.velocity.set(0, 0, 0);
+  updateHud();
+}
+
+function exitVehicle() {
+  const left = getCarDoorPosition('left');
+  const rightPos = getCarDoorPosition('right');
+  const options = [left, rightPos, vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
+
+  for (const option of options) {
+    const p = option.clone();
+    resolveCircleCollisions(p, playerState.radius, true);
+    if (p.distanceTo(option) < 0.8) {
+      playerState.position.copy(p);
+      playerState.position.y = 0;
+      playerState.heading = vehicle.heading + Math.PI * 0.5;
+      playerState.velocity.set(0, 0, 0);
+      clearMoveTarget();
+      playerState.inVehicle = false;
+      playerAvatar.root.visible = playerState.cameraMode === 'third';
+      updatePlayerAvatar(0);
+      updateHud();
+      return;
+    }
+  }
+}
+
+function handleInteract() {
+  if (!gameStarted) return;
+  if (playerState.inVehicle) {
+    if (vehicle.speedKmh < 3) exitVehicle();
+    return;
+  }
+  const doorLeft = getCarDoorPosition('left');
+  const doorRight = getCarDoorPosition('right');
+  const nearDoor = Math.min(playerState.position.distanceTo(doorLeft), playerState.position.distanceTo(doorRight));
+  if (nearDoor < 2.7 && vehicle.speedKmh < 3) enterVehicle();
+}
+
+function toggleCameraMode() {
+  playerState.cameraMode = playerState.cameraMode === 'third' ? 'first' : 'third';
+  if (!playerState.inVehicle) playerAvatar.root.visible = playerState.cameraMode === 'third';
+  updateHud();
+}
 
 function resetVehicle() {
   vehicle.position.copy(vehicle.spawn);
@@ -1108,6 +1559,19 @@ function getCarOBB(x, z, heading) {
       { x: cos, z: -sin }
     ],
     extents: [halfL, halfW]
+  };
+}
+
+function getPlayerCarAABB() {
+  const halfL = vehicle.length * 0.5;
+  const halfW = vehicle.width * 0.5;
+  const sin = Math.abs(Math.sin(vehicle.heading));
+  const cos = Math.abs(Math.cos(vehicle.heading));
+  return {
+    x: vehicle.position.x,
+    z: vehicle.position.z,
+    halfW: sin * halfL + cos * halfW,
+    halfD: cos * halfL + sin * halfW
   };
 }
 
@@ -1240,7 +1704,7 @@ function resolveVehicleCollisions() {
 
   const normalVelocity = vehicle.velocity.x * normalX + vehicle.velocity.z * normalZ;
   if (normalVelocity < 0) {
-    const restitution = 0.22;
+    const restitution = 0.1;
     vehicle.velocity.x -= (1 + restitution) * normalVelocity * normalX;
     vehicle.velocity.z -= (1 + restitution) * normalVelocity * normalZ;
   }
@@ -1248,16 +1712,17 @@ function resolveVehicleCollisions() {
   const tangentX = -normalZ;
   const tangentZ = normalX;
   const tangentVelocity = vehicle.velocity.x * tangentX + vehicle.velocity.z * tangentZ;
-  vehicle.velocity.x -= tangentX * tangentVelocity * 0.22;
-  vehicle.velocity.z -= tangentZ * tangentVelocity * 0.22;
+  vehicle.velocity.x -= tangentX * tangentVelocity * 0.12;
+  vehicle.velocity.z -= tangentZ * tangentVelocity * 0.12;
 
-  const reboundSpeed = Math.max(1.3, Math.abs(normalVelocity) * 0.7 + strongestPenetration * 20);
+  const impactSpeed = Math.max(0, -normalVelocity);
+  const reboundSpeed = clamp(impactSpeed * 0.18 + strongestPenetration * 7, 0.18, 1.6);
   vehicle.velocity.x += normalX * reboundSpeed;
   vehicle.velocity.z += normalZ * reboundSpeed;
 
-  vehicle.steer *= 0.55;
-  vehicle.bodyPitch = Math.max(vehicle.bodyPitch, 0.02 + Math.min(0.04, strongestPenetration * 0.18));
-  vehicle.suspensionVelocity -= Math.min(0.22, strongestPenetration * 0.45);
+  vehicle.steer *= 0.72;
+  vehicle.bodyPitch = Math.max(vehicle.bodyPitch, 0.012 + Math.min(0.018, strongestPenetration * 0.07));
+  vehicle.suspensionVelocity -= Math.min(0.08, strongestPenetration * 0.16);
 
   return true;
 }
@@ -1270,15 +1735,26 @@ function updateVehicle(dt) {
   const lateralSpeed = vehicle.velocity.dot(right);
   const absForwardSpeed = Math.abs(forwardSpeed);
 
-  const speedFactor = clamp(absForwardSpeed / 34, 0, 1);
+  const speedFactor = clamp(absForwardSpeed / 35, 0, 1);
+  const lowSpeedSteerBoost = lerp(1.18, 1.0, speedFactor);
   const targetSteer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
-  const steeringLimit = lerp(vehicle.maxSteer, vehicle.maxSteer * 0.56, speedFactor);
+  const steeringLimit = lerp(vehicle.maxSteer * lowSpeedSteerBoost, vehicle.maxSteer * 0.68, speedFactor);
   const desiredSteer = targetSteer * steeringLimit;
-  const isDirectionFlip = targetSteer !== 0 && Math.sign(desiredSteer) !== Math.sign(vehicle.steer) && Math.abs(vehicle.steer) > 0.045;
+  const isDirectionFlip = targetSteer !== 0 && Math.sign(desiredSteer) !== Math.sign(vehicle.steer) && Math.abs(vehicle.steer) > 0.03;
 
   if (targetSteer !== 0) {
-    const steerRate = isDirectionFlip ? vehicle.steerCrossSpeed : vehicle.steerSpeed;
-    vehicle.steer = damp(vehicle.steer, desiredSteer, steerRate, dt);
+    const oppositeAmount = isDirectionFlip ? clamp(Math.abs(vehicle.steer) / Math.max(steeringLimit, 0.001), 0, 1) : 0;
+    const crossTargetScale = lerp(0.46, 0.28, speedFactor) * lerp(1.0, 0.84, oppositeAmount);
+    const steerTarget = isDirectionFlip ? desiredSteer * crossTargetScale : desiredSteer;
+    const steerRate = isDirectionFlip
+      ? lerp(vehicle.steerCrossSpeed * 0.96, vehicle.steerCrossSpeed * 0.72, speedFactor)
+      : lerp(vehicle.steerSpeed * 1.18, vehicle.steerSpeed * 0.94, speedFactor);
+
+    vehicle.steer = damp(vehicle.steer, steerTarget, steerRate, dt);
+
+    if (isDirectionFlip && Math.abs(vehicle.steer) < steeringLimit * 0.22) {
+      vehicle.steer = damp(vehicle.steer, desiredSteer, vehicle.steerSpeed * 0.82, dt);
+    }
   } else {
     vehicle.steer = damp(vehicle.steer, 0, vehicle.steerReturnSpeed, dt);
   }
@@ -1309,9 +1785,10 @@ function updateVehicle(dt) {
   vehicle.velocity.multiplyScalar(1 - clamp(dt * 0.065, 0, 0.065));
 
   const turnStrength = Math.tan(vehicle.steer) / vehicle.wheelBase;
-  const turnAssist = lerp(0.42, 0.96, clamp(absForwardSpeed / 9, 0, 1));
-  const targetYawRate = -forwardSpeed * turnStrength * turnAssist;
-  const yawResponse = lerp(vehicle.yawResponse * 1.1, vehicle.yawResponse * 0.82, speedFactor);
+  const turnAssist = lerp(0.56, 1.02, clamp(absForwardSpeed / 11, 0, 1));
+  const rotationAssist = vehicle.steer * clamp(absForwardSpeed / 13, 0, 1) * 0.28;
+  const targetYawRate = -forwardSpeed * turnStrength * turnAssist - Math.sign(forwardSpeed || 1) * rotationAssist;
+  const yawResponse = lerp(vehicle.yawResponse * 1.02, vehicle.yawResponse * 0.92, speedFactor);
   vehicle.yawRate = damp(vehicle.yawRate, targetYawRate, yawResponse, dt);
   vehicle.heading += vehicle.yawRate * dt;
 
@@ -1378,8 +1855,231 @@ function updateCarModel() {
 }
 
 function updateHud() {
-  speedValue.textContent = Math.round(vehicle.speedKmh).toString();
-  gearValue.textContent = vehicle.gear;
+  const speed = playerState.inVehicle ? Math.round(vehicle.speedKmh) : Math.round(playerState.velocity.length() * 3.6);
+  speedValue.textContent = speed.toString();
+  gearValue.textContent = playerState.inVehicle ? vehicle.gear : 'ON';
+  modeValue.textContent = playerState.inVehicle ? 'Driving' : 'On foot';
+  cameraValue.textContent = playerState.cameraMode === 'third' ? 'Third person' : 'First person';
+
+  if (playerState.inVehicle) {
+    interactionHint.textContent = vehicle.speedKmh < 3 ? 'E to exit car · C camera · H horn' : 'Slow down to exit · C camera · H horn';
+  } else {
+    const nearDoor = Math.min(playerState.position.distanceTo(getCarDoorPosition('left')), playerState.position.distanceTo(getCarDoorPosition('right')));
+    interactionHint.textContent = nearDoor < 2.8 ? 'E to enter car · Shift sprint · Tap ground to move' : 'Tap the ground to move · Walk to your car and press E';
+  }
+}
+
+function updatePlayerAvatar(dt) {
+  playerAvatar.root.position.copy(playerState.position);
+  playerAvatar.root.position.y = 0.02;
+  playerAvatar.root.rotation.y = playerState.heading;
+  if (playerState.inVehicle || playerState.cameraMode === 'first') {
+    playerAvatar.root.visible = false;
+    return;
+  }
+
+  playerAvatar.root.visible = true;
+  const speed = playerState.velocity.length();
+  playerState.walkCycle += dt * (speed > 0.1 ? speed * 4.3 : 0.8);
+  const swing = Math.sin(playerState.walkCycle) * Math.min(0.7, speed * 0.18);
+  const counter = Math.sin(playerState.walkCycle + Math.PI) * Math.min(0.7, speed * 0.18);
+
+  playerAvatar.shoulders.left.rotation.x = swing;
+  playerAvatar.shoulders.right.rotation.x = counter;
+  playerAvatar.elbows.left.rotation.x = Math.max(0, -swing * 0.25);
+  playerAvatar.elbows.right.rotation.x = Math.max(0, -counter * 0.25);
+  playerAvatar.hips.left.rotation.x = counter;
+  playerAvatar.hips.right.rotation.x = swing;
+  playerAvatar.knees.left.rotation.x = Math.max(0, swing) * 0.55;
+  playerAvatar.knees.right.rotation.x = Math.max(0, counter) * 0.55;
+  playerAvatar.pelvis.position.y = 0.02 + Math.abs(Math.sin(playerState.walkCycle * 2)) * Math.min(0.05, speed * 0.012);
+}
+
+function createPedestrian(axis, lane, scalar, dir, paletteIndex = 0) {
+  const avatar = createHumanoidMesh(0.88 + hash2(lane, scalar) * 0.16, pedestrianPalettes[paletteIndex % pedestrianPalettes.length]);
+  scene.add(avatar.root);
+  const pedestrian = {
+    axis,
+    lane,
+    offset: 0,
+    scalar,
+    dir,
+    speed: 0,
+    targetSpeed: 1.1 + hash2(lane * 0.3, scalar * 0.2) * 0.95,
+    panicTimer: 0,
+    reaction: 0,
+    walkCycle: hash2(scalar, lane) * Math.PI * 2,
+    avatar,
+    radius: 0.34,
+    heading: axis === 'z' ? (dir > 0 ? 0 : Math.PI) : (dir > 0 ? Math.PI * 0.5 : -Math.PI * 0.5)
+  };
+  pedestrians.push(pedestrian);
+  updatePedestrianTransform(pedestrian, 0);
+}
+
+function buildPedestrianSystem() {
+  let paletteIndex = 0;
+  for (const x of roadCenters) {
+    const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
+    for (const offset of sidewalkOffsets) {
+      for (let i = 0; i < 3; i++) {
+        const scalar = -worldHalf + 38 + i * 190 + hash2(x + offset, i + 20) * 42;
+        createPedestrian('z', x + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
+      }
+    }
+  }
+
+  for (const z of roadCenters) {
+    const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
+    for (const offset of sidewalkOffsets) {
+      for (let i = 0; i < 3; i++) {
+        const scalar = -worldHalf + 52 + i * 180 + hash2(z + offset, i + 40) * 45;
+        createPedestrian('x', z + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
+      }
+    }
+  }
+}
+
+function getPedestrianWorldPosition(pedestrian) {
+  if (pedestrian.axis === 'z') return new THREE.Vector3(pedestrian.lane + pedestrian.offset, 0, pedestrian.scalar);
+  return new THREE.Vector3(pedestrian.scalar, 0, pedestrian.lane + pedestrian.offset);
+}
+
+function updatePedestrianTransform(pedestrian, dt) {
+  const pos = getPedestrianWorldPosition(pedestrian);
+  pedestrian.avatar.root.position.copy(pos);
+  pedestrian.avatar.root.position.y = 0.02;
+  pedestrian.avatar.root.rotation.y = pedestrian.heading;
+
+  pedestrian.walkCycle += dt * (pedestrian.speed * 5 + 1.2);
+  const swing = Math.sin(pedestrian.walkCycle) * Math.min(0.65, pedestrian.speed * 0.18);
+  const counter = Math.sin(pedestrian.walkCycle + Math.PI) * Math.min(0.65, pedestrian.speed * 0.18);
+  pedestrian.avatar.shoulders.left.rotation.x = swing;
+  pedestrian.avatar.shoulders.right.rotation.x = counter;
+  pedestrian.avatar.hips.left.rotation.x = counter;
+  pedestrian.avatar.hips.right.rotation.x = swing;
+  pedestrian.avatar.knees.left.rotation.x = Math.max(0, swing) * 0.45;
+  pedestrian.avatar.knees.right.rotation.x = Math.max(0, counter) * 0.45;
+  pedestrian.avatar.pelvis.position.y = 0.02 + Math.abs(Math.sin(pedestrian.walkCycle * 2)) * Math.min(0.04, pedestrian.speed * 0.012);
+}
+
+function updatePedestrians(dt) {
+  const threatPos = playerState.inVehicle ? vehicle.position : playerState.position;
+  const threatVelocity = playerState.inVehicle ? vehicle.velocity : playerState.velocity;
+  const threatSpeed = threatVelocity.length();
+  const hornInfluence = input.horn && playerState.inVehicle;
+
+  for (const pedestrian of pedestrians) {
+    const pos = getPedestrianWorldPosition(pedestrian);
+    const dx = pos.x - threatPos.x;
+    const dz = pos.z - threatPos.z;
+    const dist = Math.hypot(dx, dz);
+
+    if ((playerState.inVehicle && threatSpeed > 4.5 && dist < 16) || (hornInfluence && dist < 26) || (!playerState.inVehicle && dist < 2.2)) {
+      pedestrian.panicTimer = Math.max(pedestrian.panicTimer, hornInfluence ? 2.5 : 1.8);
+      pedestrian.reaction = 1;
+      if (pedestrian.axis === 'z') {
+        const push = dx >= 0 ? 1 : -1;
+        pedestrian.offset = damp(pedestrian.offset, push * 1.45, 4.8, dt);
+        if (Math.abs(dz) > 2) pedestrian.dir = dz >= 0 ? 1 : -1;
+      } else {
+        const push = dz >= 0 ? 1 : -1;
+        pedestrian.offset = damp(pedestrian.offset, push * 1.45, 4.8, dt);
+        if (Math.abs(dx) > 2) pedestrian.dir = dx >= 0 ? 1 : -1;
+      }
+    } else {
+      pedestrian.reaction = damp(pedestrian.reaction, 0, 1.8, dt);
+      pedestrian.offset = damp(pedestrian.offset, 0, 1.7, dt);
+    }
+
+    pedestrian.panicTimer = Math.max(0, pedestrian.panicTimer - dt);
+    const desiredSpeed = pedestrian.panicTimer > 0 ? 3.4 : pedestrian.targetSpeed;
+    pedestrian.speed = damp(pedestrian.speed, desiredSpeed, pedestrian.panicTimer > 0 ? 4.5 : 2.4, dt);
+    pedestrian.scalar += pedestrian.dir * pedestrian.speed * dt;
+
+    if (pedestrian.scalar > worldHalf - 18) {
+      pedestrian.scalar = worldHalf - 18;
+      pedestrian.dir = -1;
+    }
+    if (pedestrian.scalar < -worldHalf + 18) {
+      pedestrian.scalar = -worldHalf + 18;
+      pedestrian.dir = 1;
+    }
+
+    if (pedestrian.axis === 'z') {
+      pedestrian.heading = pedestrian.dir > 0 ? 0 : Math.PI;
+    } else {
+      pedestrian.heading = pedestrian.dir > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+    }
+
+    const updatedPos = getPedestrianWorldPosition(pedestrian);
+    const playerDx = updatedPos.x - playerState.position.x;
+    const playerDz = updatedPos.z - playerState.position.z;
+    const overlap = pedestrian.radius + playerState.radius - Math.hypot(playerDx, playerDz);
+    if (!playerState.inVehicle && overlap > 0) {
+      const n = Math.hypot(playerDx, playerDz) || 1;
+      const nx = playerDx / n;
+      const nz = playerDz / n;
+      pedestrian.offset += (pedestrian.axis === 'z' ? nx : nz) * overlap * 0.8;
+      playerState.position.x -= nx * overlap * 0.5;
+      playerState.position.z -= nz * overlap * 0.5;
+    }
+
+    updatePedestrianTransform(pedestrian, dt);
+  }
+}
+
+function updateOnFoot(dt) {
+  const cameraForward = new THREE.Vector3();
+  camera.getWorldDirection(cameraForward);
+  cameraForward.y = 0;
+  if (cameraForward.lengthSq() < 1e-6) cameraForward.set(Math.sin(playerState.heading), 0, Math.cos(playerState.heading));
+  cameraForward.normalize();
+  const cameraRight = new THREE.Vector3(cameraForward.z, 0, -cameraForward.x);
+
+  const inputForward = (input.accelerate ? 1 : 0) + (input.brake ? -1 : 0);
+  const inputRight = (input.right ? 1 : 0) + (input.left ? -1 : 0);
+  const desiredMove = new THREE.Vector3();
+  desiredMove.addScaledVector(cameraForward, inputForward);
+  desiredMove.addScaledVector(cameraRight, inputRight);
+
+  let targetSpeed = 0;
+  const hasManualInput = desiredMove.lengthSq() > 1e-4;
+
+  if (hasManualInput) {
+    desiredMove.normalize();
+    targetSpeed = input.sprint ? playerState.sprintSpeed : playerState.walkSpeed;
+    clearMoveTarget();
+  } else if (playerState.moveTargetActive) {
+    const toTarget = playerState.moveTarget.clone().sub(playerState.position);
+    toTarget.y = 0;
+    const distance = toTarget.length();
+
+    if (distance <= 0.7) {
+      clearMoveTarget();
+    } else {
+      desiredMove.copy(toTarget.normalize());
+      targetSpeed = (input.sprint || playerState.moveTargetRun || distance > 16)
+        ? playerState.sprintSpeed
+        : playerState.walkSpeed;
+      moveCursorMarker.position.set(playerState.moveTarget.x, 0.12 + Math.sin(performance.now() * 0.01) * 0.03, playerState.moveTarget.z);
+      moveCursorMarker.rotation.y += dt * 2.4;
+    }
+  }
+
+  const desiredVelocity = desiredMove.multiplyScalar(targetSpeed);
+  playerState.velocity.lerp(desiredVelocity, 1 - Math.exp(-(targetSpeed > 0 ? 12 : 10) * dt));
+
+  const delta = playerState.velocity.clone().multiplyScalar(dt);
+  playerState.position.add(delta);
+  resolveCircleCollisions(playerState.position, playerState.radius, true);
+
+  if (playerState.velocity.lengthSq() > 0.02) {
+    playerState.heading = Math.atan2(playerState.velocity.x, playerState.velocity.z);
+  }
+
+  updatePlayerAvatar(dt);
+  updateHud();
 }
 
 // ------------------------------------------------------------
@@ -1626,24 +2326,52 @@ const cameraState = {
 };
 
 function updateCamera(dt) {
-  const forward = vehicleForward();
-  const speedFactor = clamp(vehicle.speedKmh / 140, 0, 1);
-  const height = lerp(4.6, 5.7, speedFactor);
-  const distance = lerp(8.8, 11.8, speedFactor);
-  const sideBias = vehicle.steer * 1.1;
-  const lookAhead = lerp(4.8, 8.8, speedFactor);
+  let desiredPosition;
+  let desiredTarget;
 
-  const desiredPosition = vehicle.position.clone()
-    .addScaledVector(forward, -distance)
-    .addScaledVector(vehicleRight(), sideBias)
-    .add(new THREE.Vector3(0, height, 0));
+  if (playerState.inVehicle) {
+    const forward = vehicleForward();
+    const speedFactor = clamp(vehicle.speedKmh / 140, 0, 1);
+    if (playerState.cameraMode === 'first') {
+      desiredPosition = vehicle.position.clone()
+        .addScaledVector(forward, 0.92)
+        .addScaledVector(vehicleRight(), vehicle.steer * 0.08)
+        .add(new THREE.Vector3(0, 1.45, 0));
+      desiredTarget = desiredPosition.clone()
+        .addScaledVector(forward, 14)
+        .add(new THREE.Vector3(0, 0.15, 0));
+    } else {
+      const height = lerp(4.6, 5.7, speedFactor);
+      const distance = lerp(8.8, 11.8, speedFactor);
+      const sideBias = vehicle.steer * 1.1;
+      const lookAhead = lerp(4.8, 8.8, speedFactor);
+      desiredPosition = vehicle.position.clone()
+        .addScaledVector(forward, -distance)
+        .addScaledVector(vehicleRight(), sideBias)
+        .add(new THREE.Vector3(0, height, 0));
+      desiredTarget = vehicle.position.clone()
+        .addScaledVector(forward, lookAhead)
+        .add(new THREE.Vector3(0, 1.15, 0));
+    }
+  } else {
+    const forward = new THREE.Vector3(Math.sin(playerState.heading), 0, Math.cos(playerState.heading));
+    const right = new THREE.Vector3(Math.cos(playerState.heading), 0, -Math.sin(playerState.heading));
+    if (playerState.cameraMode === 'first') {
+      desiredPosition = playerState.position.clone().add(new THREE.Vector3(0, 1.64, 0));
+      desiredTarget = desiredPosition.clone().addScaledVector(forward, 12);
+    } else {
+      desiredPosition = playerState.position.clone()
+        .addScaledVector(forward, -4.3)
+        .addScaledVector(right, 0.35)
+        .add(new THREE.Vector3(0, 2.1, 0));
+      desiredTarget = playerState.position.clone()
+        .addScaledVector(forward, 3.8)
+        .add(new THREE.Vector3(0, 1.25, 0));
+    }
+  }
 
-  const desiredTarget = vehicle.position.clone()
-    .addScaledVector(forward, lookAhead)
-    .add(new THREE.Vector3(0, 1.15, 0));
-
-  cameraState.currentPosition.lerp(desiredPosition, 1 - Math.exp(-5.4 * dt));
-  cameraState.currentTarget.lerp(desiredTarget, 1 - Math.exp(-6.4 * dt));
+  cameraState.currentPosition.lerp(desiredPosition, 1 - Math.exp(-6.2 * dt));
+  cameraState.currentTarget.lerp(desiredTarget, 1 - Math.exp(-7.0 * dt));
 
   camera.position.copy(cameraState.currentPosition);
   camera.lookAt(cameraState.currentTarget);
@@ -1663,9 +2391,10 @@ function drawMinimap() {
   const ctx = minimapCtx;
   const width = minimapCanvas.width;
   const height = minimapCanvas.height;
+  const focus = getActiveFocusPosition();
   const scale = width / (minimapRange * 2);
-  const originX = vehicle.position.x;
-  const originZ = vehicle.position.z;
+  const originX = focus.x;
+  const originZ = focus.z;
 
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = '#061019';
@@ -1690,7 +2419,7 @@ function drawMinimap() {
     ctx.fillRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
   }
 
-  ctx.fillStyle = 'rgba(226,234,242,0.55)';
+  ctx.fillStyle = 'rgba(226,234,242,0.4)';
   for (const obstacle of obstacles) {
     if (Math.abs(obstacle.x - originX) > minimapRange + obstacle.halfW || Math.abs(obstacle.z - originZ) > minimapRange + obstacle.halfD) continue;
     const p = mapWorldToMinimap(obstacle.x - obstacle.halfW, obstacle.z - obstacle.halfD, originX, originZ, scale);
@@ -1709,23 +2438,94 @@ function drawMinimap() {
     ctx.fill();
   }
 
+  ctx.fillStyle = 'rgba(147, 199, 255, 0.82)';
+  for (const pedestrian of pedestrians) {
+    const pos = getPedestrianWorldPosition(pedestrian);
+    if (Math.abs(pos.x - originX) > minimapRange || Math.abs(pos.z - originZ) > minimapRange) continue;
+    const p = mapWorldToMinimap(pos.x, pos.z, originX, originZ, scale);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(1.5, width * 0.008), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (!playerState.inVehicle) {
+    const carMapPos = mapWorldToMinimap(vehicle.position.x, vehicle.position.z, originX, originZ, scale);
+    ctx.save();
+    ctx.translate(carMapPos.x, carMapPos.y);
+    ctx.rotate(Math.PI - vehicle.heading);
+    ctx.fillStyle = '#5fd0ff';
+    ctx.fillRect(-4, -7, 8, 14);
+    ctx.restore();
+  }
+
+  if (!playerState.inVehicle && playerState.moveTargetActive) {
+    const targetPos = mapWorldToMinimap(playerState.moveTarget.x, playerState.moveTarget.z, originX, originZ, scale);
+    const visible = Math.abs(playerState.moveTarget.x - originX) <= minimapRange && Math.abs(playerState.moveTarget.z - originZ) <= minimapRange;
+    if (visible) {
+      ctx.strokeStyle = '#9be18f';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(targetPos.x, targetPos.y, Math.max(5, width * 0.024), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(width * 0.5, height * 0.5);
+      ctx.lineTo(targetPos.x, targetPos.y);
+      ctx.strokeStyle = 'rgba(155,225,143,0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+  }
+
   if (missionState.active) {
     const mission = missionDefinitions[missionState.currentMissionIndex];
     const checkpoint = mission.checkpoints[missionState.currentCheckpointIndex];
     const p = mapWorldToMinimap(checkpoint.x, checkpoint.z, originX, originZ, scale);
-    ctx.strokeStyle = '#56b6ff';
-    ctx.lineWidth = 3;
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const distance = Math.hypot(dx, dy) || 1;
+    const guideRadius = width * 0.42;
+    const targetX = distance > guideRadius ? cx + dx / distance * guideRadius : p.x;
+    const targetY = distance > guideRadius ? cy + dy / distance * guideRadius : p.y;
+
+    ctx.strokeStyle = 'rgba(86,182,255,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([10, 8]);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, Math.max(6, width * 0.032), 0, Math.PI * 2);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(targetX, targetY);
     ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (distance <= guideRadius) {
+      ctx.strokeStyle = '#56b6ff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(6, width * 0.032), 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.save();
+      ctx.translate(targetX, targetY);
+      ctx.rotate(Math.atan2(dy, dx) + Math.PI * 0.5);
+      ctx.fillStyle = '#56b6ff';
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(6.5, 7);
+      ctx.lineTo(0, 3);
+      ctx.lineTo(-6.5, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   const cx = width * 0.5;
   const cy = height * 0.5;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(Math.PI - vehicle.heading);
-  ctx.fillStyle = '#ff5f5f';
+  ctx.rotate(Math.PI - getActiveHeading());
+  ctx.fillStyle = playerState.inVehicle ? '#ff5f5f' : '#9be18f';
   ctx.beginPath();
   ctx.moveTo(0, -12);
   ctx.lineTo(8, 10);
@@ -1754,13 +2554,16 @@ function buildWorld() {
   createBoundaryBarriers();
   createDecorProps();
   buildTrafficSystem();
+  buildPedestrianSystem();
   updateCarModel();
+  updatePlayerAvatar(0);
   updateHud();
   updateMissionHud();
 }
 
 buildWorld();
 resizeMinimapCanvas();
+updateMobileUi();
 loading.classList.remove('visible');
 
 // ------------------------------------------------------------
@@ -1782,6 +2585,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
   resizeMinimapCanvas();
+  updateMobileUi();
 });
 
 function animate() {
@@ -1791,10 +2595,16 @@ function animate() {
 
   if (gameStarted) {
     updateTraffic(dt);
-    updateVehicle(dt);
+    if (playerState.inVehicle) {
+      updateVehicle(dt);
+    } else {
+      updateOnFoot(dt);
+    }
+    updatePedestrians(dt);
     updateMission(dt);
     updateCamera(dt);
     drawMinimap();
+    playerState.hornPulse = damp(playerState.hornPulse, input.horn ? 1 : 0, input.horn ? 10 : 5, dt);
   } else {
     const idleTarget = new THREE.Vector3(vehicle.position.x - 6, 4.4, vehicle.position.z + 8);
     camera.position.lerp(idleTarget, 0.02);

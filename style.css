@@ -28,6 +28,12 @@ body {
 
 body {
   overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  position: relative;
 }
 
 #app,
@@ -39,6 +45,7 @@ body {
 
 #gameCanvas {
   outline: none;
+  touch-action: none;
 }
 
 .overlay {
@@ -125,12 +132,12 @@ ul {
   line-height: 1.8;
 }
 
-.play-button,
-.mini-toggle {
+.play-button {
   appearance: none;
   border: none;
   border-radius: 999px;
   padding: 16px 28px;
+  min-width: 180px;
   background: linear-gradient(135deg, var(--accent), #76e0ff);
   color: #071019;
   font-weight: 800;
@@ -141,24 +148,12 @@ ul {
   box-shadow: 0 14px 28px rgba(86, 182, 255, 0.28);
 }
 
-.play-button {
-  min-width: 180px;
-}
-
-.mini-toggle {
-  padding: 9px 16px;
-  font-size: 0.78rem;
-  min-width: 80px;
-}
-
-.play-button:hover,
-.mini-toggle:hover {
+.play-button:hover {
   transform: translateY(-2px) scale(1.01);
   filter: brightness(1.04);
 }
 
-.play-button:active,
-.mini-toggle:active {
+.play-button:active {
   transform: translateY(0) scale(0.995);
 }
 
@@ -195,69 +190,10 @@ ul {
   padding: 18px 20px;
 }
 
-.controls-panel {
+.hud-right {
   right: 18px;
   bottom: 18px;
   padding: 16px 18px;
-}
-
-.mission-panel {
-  top: 18px;
-  left: 18px;
-  width: min(360px, calc(100vw - 36px));
-  padding: 16px 18px;
-}
-
-.mission-title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.mission-text,
-.mission-meta {
-  color: var(--muted);
-  line-height: 1.5;
-  font-size: 0.94rem;
-}
-
-.mission-meta {
-  margin-top: 10px;
-}
-
-.minimap-panel {
-  top: 18px;
-  right: 18px;
-  width: 280px;
-  padding: 14px;
-  pointer-events: auto;
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.minimap-panel.collapsed {
-  transform: translateX(230px);
-}
-
-.minimap-panel.collapsed #minimapCanvas {
-  opacity: 0;
-}
-
-.minimap-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-#minimapCanvas {
-  width: 100%;
-  aspect-ratio: 1;
-  display: block;
-  border-radius: 16px;
-  background: rgba(3, 5, 9, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  opacity: 1;
-  transition: opacity 0.18s ease;
 }
 
 .speed-row {
@@ -331,27 +267,374 @@ ul {
   visibility: visible;
 }
 
-@media (max-width: 960px) {
+strong {
+  color: var(--accent-2);
+}
+
+@media (max-width: 860px) {
   .menu-grid {
     grid-template-columns: 1fr;
   }
 
+  .hud-right {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    top: auto;
+    width: auto;
+  }
+
+  .hud-left {
+    left: 12px;
+    right: 12px;
+    bottom: 116px;
+    min-width: auto;
+  }
+
+  .controls-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .menu-panel {
+    border-radius: 22px;
+  }
+
+  .play-button {
+    width: 100%;
+  }
+
+  .controls-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mission-panel {
+  top: 18px;
+  left: 18px;
+  width: min(380px, calc(100vw - 36px));
+  padding: 16px 18px;
+}
+
+.state-panel {
+  top: 18px;
+  right: 18px;
+  width: 220px;
+  padding: 14px 16px;
+}
+
+.controls-panel {
+  right: 18px;
+  bottom: 18px;
+  width: 220px;
+  padding: 16px 18px;
+}
+
+.mission-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.mission-text {
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.mission-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.state-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+}
+
+.state-row span {
+  color: var(--muted);
+}
+
+.interaction-hint {
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.minimap-panel {
+  right: 18px;
+  top: 144px;
+  width: 260px;
+  padding: 12px;
+  pointer-events: auto;
+  transition: width 0.25s ease, transform 0.25s ease;
+}
+
+.minimap-panel.collapsed {
+  width: 112px;
+}
+
+.minimap-panel.collapsed canvas {
+  display: none;
+}
+
+.minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mini-button {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#minimapCanvas {
+  width: 100%;
+  height: 236px;
+  display: block;
+  border-radius: 18px;
+  background: #051018;
+}
+
+@media (max-width: 980px) {
+  .state-panel {
+    top: 170px;
+    right: 18px;
+  }
+
+  .minimap-panel {
+    top: 360px;
+  }
+}
+
+@media (max-width: 860px) {
+  .mission-panel,
+  .state-panel,
+  .minimap-panel,
   .controls-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+
+  .mission-panel {
+    top: 12px;
+  }
+
+  .state-panel {
+    top: 160px;
+  }
+
+  .minimap-panel {
+    top: 286px;
+  }
+
+  .controls-panel {
+    bottom: 12px;
+  }
+}
+
+
+.mobile-controls {
+  position: absolute;
+  inset: auto 0 14px 0;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 0 14px;
+  pointer-events: none;
+  z-index: 16;
+}
+
+.touch-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.touch-drive {
+  align-items: center;
+}
+
+.touch-row {
+  display: flex;
+  gap: 10px;
+}
+
+.touch-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.touch-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(18, 24, 37, 0.88), rgba(9, 13, 22, 0.88));
+  color: var(--text);
+  border-radius: 22px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  touch-action: manipulation;
+}
+
+.touch-btn.active,
+.touch-btn:active {
+  transform: scale(0.97);
+  border-color: rgba(86, 182, 255, 0.58);
+  box-shadow: 0 8px 20px rgba(86, 182, 255, 0.2);
+}
+
+.touch-btn-dir {
+  width: 74px;
+  height: 74px;
+  font-size: 1.45rem;
+}
+
+.touch-btn-action {
+  min-width: 72px;
+  height: 56px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
+body.mobile-ui .mobile-controls {
+  display: flex;
+}
+
+body.mobile-ui .controls-panel {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  body.mobile-ui .hud-left {
+    bottom: 158px;
+  }
+
+  body.mobile-ui .controls-panel {
     display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .mission-panel {
+    width: min(100vw - 20px, 420px);
+    padding: 14px 15px;
+  }
+
+  .state-panel {
+    width: min(100vw - 20px, 320px);
   }
 
   .minimap-panel {
     top: auto;
-    right: 18px;
-    bottom: 18px;
-    width: min(230px, calc(100vw - 36px));
+    bottom: 156px;
+    width: min(100vw - 20px, 220px);
+    left: auto;
+    right: 10px;
+    padding: 10px;
   }
 
   .minimap-panel.collapsed {
-    transform: translateY(170px);
+    width: 94px;
   }
 
+  #minimapCanvas {
+    height: 180px;
+  }
+
+  .mobile-controls {
+    inset: auto 0 10px 0;
+    padding: 0 10px;
+    gap: 10px;
+  }
+
+  .touch-btn-dir {
+    width: 68px;
+    height: 68px;
+  }
+
+  .touch-btn-action {
+    min-width: 64px;
+    height: 52px;
+    font-size: 0.8rem;
+  }
+
+  .touch-action-grid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 520px) {
   .mission-panel {
-    width: min(320px, calc(100vw - 36px));
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+
+  .state-panel {
+    top: 142px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+
+  body.mobile-ui .hud-left {
+    left: 10px;
+    right: 10px;
+    bottom: 192px;
+    min-width: 0;
+  }
+
+  .minimap-panel {
+    bottom: 192px;
+    right: 10px;
+    left: auto;
+  }
+
+  .mobile-controls {
+    padding: 0 8px;
+  }
+
+  .touch-btn-dir {
+    width: 62px;
+    height: 62px;
+    font-size: 1.25rem;
+  }
+
+  .touch-btn-action {
+    min-width: 58px;
+    height: 48px;
+    font-size: 0.76rem;
+    border-radius: 18px;
+  }
+
+  .touch-cluster {
+    gap: 8px;
+  }
+
+  .touch-row,
+  .touch-action-grid {
+    gap: 8px;
   }
 }
