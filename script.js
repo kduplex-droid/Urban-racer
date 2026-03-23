@@ -13,6 +13,11 @@ const speedValue = document.getElementById('speedValue');
 const gearValue = document.getElementById('gearValue');
 const modeValue = document.getElementById('modeValue');
 const cameraValue = document.getElementById('cameraValue');
+<<<<<<< HEAD
+const carValue = document.getElementById('carValue');
+const garageValue = document.getElementById('garageValue');
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 const interactionHint = document.getElementById('interactionHint');
 const missionTitle = document.getElementById('missionTitle');
 const missionText = document.getElementById('missionText');
@@ -22,28 +27,69 @@ const minimapCanvas = document.getElementById('minimapCanvas');
 const minimapToggle = document.getElementById('minimapToggle');
 const minimapCtx = minimapCanvas.getContext('2d');
 const mobileControls = document.getElementById('mobileControls');
+<<<<<<< HEAD
+const hubOverlay = document.getElementById('hubOverlay');
+const hubModeGrid = document.getElementById('hubModeGrid');
+const hubCarGrid = document.getElementById('hubCarGrid');
+const hubStatus = document.getElementById('hubStatus');
+const hubProgressBadge = document.getElementById('hubProgressBadge');
+const startModeButton = document.getElementById('startModeButton');
+const closeHubButton = document.getElementById('closeHubButton');
 const touchButtons = [...document.querySelectorAll('.touch-btn')];
+
+// ------------------------------------------------------------
+// Performance profile
+// ------------------------------------------------------------
+function detectPerformanceProfile() {
+  const ua = navigator.userAgent || '';
+  const memory = navigator.deviceMemory || 4;
+  const cores = navigator.hardwareConcurrency || 4;
+  const touchDevice = window.matchMedia('(pointer: coarse)').matches;
+  const smallScreen = Math.min(window.innerWidth, window.innerHeight) < 900;
+  const integratedClass = memory <= 8 || cores <= 8 || smallScreen;
+  const lowProfile = integratedClass || /Aspire|Acer/i.test(ua);
+  return {
+    lowProfile,
+    antialias: !lowProfile,
+    pixelRatioCap: lowProfile ? 1 : 1.5,
+    shadows: !lowProfile,
+    shadowMapSize: lowProfile ? 1024 : 2048,
+    fogNear: lowProfile ? 160 : 180,
+    fogFar: lowProfile ? 420 : 520,
+    trafficPerLane: lowProfile ? 1 : 2,
+    pedestriansPerSidewalk: lowProfile ? 1 : 3,
+    minimapFrameSkip: lowProfile ? 1 : 0,
+    aiUpdateRadius: lowProfile ? 150 : 220,
+    touchDevice
+  };
+}
+
+const performanceProfile = detectPerformanceProfile();
+let frameIndex = 0;
+=======
+const touchButtons = [...document.querySelectorAll('.touch-btn')];
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
 // ------------------------------------------------------------
 // Core Three.js setup
 // ------------------------------------------------------------
 const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: performanceProfile.antialias,
   alpha: false,
   powerPreference: 'high-performance'
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, performanceProfile.pixelRatioCap));
+renderer.shadowMap.enabled = performanceProfile.shadows;
+renderer.shadowMap.type = performanceProfile.lowProfile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = performanceProfile.lowProfile ? 1.02 : 1.08;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xaec9e8);
-scene.fog = new THREE.Fog(0xaec9e8, 180, 520);
+scene.fog = new THREE.Fog(0xaec9e8, performanceProfile.fogNear, performanceProfile.fogFar);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1400);
 camera.position.set(0, 6, 12);
@@ -73,6 +119,7 @@ const roadCenters = [-240, -120, 0, 120, 240];
 const boundaryPadding = 8;
 const laneOffsets = [-7.5, -2.5, 2.5, 7.5];
 const minimapRange = 92;
+const progressionStorageKey = 'urban-drive-progress-v7';
 
 const materials = {
   asphalt: new THREE.MeshStandardMaterial({ color: 0x2f3135, roughness: 0.92, metalness: 0.02 }),
@@ -219,6 +266,13 @@ function runTouchAction(action) {
   if (action === 'interact') handleInteract();
   else if (action === 'camera') toggleCameraMode();
   else if (action === 'minimap') toggleMinimap();
+<<<<<<< HEAD
+  else if (action === 'hub') {
+    if (hubState.open) closeHubOverlay();
+    else if (canOpenHub(true)) openHubOverlay();
+  }
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function setHeldInput(name, active, button) {
@@ -347,7 +401,11 @@ function setMoveTarget(point, shouldRun = false) {
 }
 
 function setMoveTargetFromScreen(clientX, clientY) {
+<<<<<<< HEAD
+  if (!gameStarted || playerState.inVehicle || hubState.open || menu.classList.contains('visible')) return false;
+=======
   if (!gameStarted || playerState.inVehicle) return false;
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   const rect = canvas.getBoundingClientRect();
   pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
   pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -478,10 +536,10 @@ function createSkySun() {
   const hemi = new THREE.HemisphereLight(0xc5dcff, 0x44513a, 1.2);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(0xfff2d2, 2.2);
+  const sun = new THREE.DirectionalLight(0xfff2d2, performanceProfile.lowProfile ? 2.0 : 2.2);
   sun.position.set(-120, 180, 80);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.castShadow = performanceProfile.shadows;
+  sun.shadow.mapSize.set(performanceProfile.shadowMapSize, performanceProfile.shadowMapSize);
   sun.shadow.camera.left = -210;
   sun.shadow.camera.right = 210;
   sun.shadow.camera.top = 210;
@@ -810,7 +868,7 @@ function createParkedCar(color, scale = 1) {
 
   const cabin = makeBox(1.58 * scale, 0.56 * scale, 1.9 * scale, materials.glass);
   cabin.position.set(0, 1.32 * scale, -0.12 * scale);
-  cabin.castShadow = true;
+  cabin.castShadow = !performanceProfile.lowProfile;
   group.add(cabin);
 
   const wheelGeometry = new THREE.CylinderGeometry(0.38 * scale, 0.38 * scale, 0.3 * scale, 16);
@@ -825,7 +883,7 @@ function createParkedCar(color, scale = 1) {
     const tire = new THREE.Mesh(wheelGeometry, materials.tire);
     tire.rotation.z = Math.PI * 0.5;
     tire.position.set(x * scale, y * scale, z * scale);
-    tire.castShadow = true;
+    tire.castShadow = false;
     group.add(tire);
   }
 
@@ -976,7 +1034,7 @@ function buildTrafficSystem() {
     for (const laneOffset of laneOffsets) {
       const laneX = x + laneOffset;
       const dir = laneOffset < 0 ? 1 : -1;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < performanceProfile.trafficPerLane; i++) {
         const scalar = -worldHalf + 60 + (i * 170) + hash2(laneX, i) * 50;
         spawnTrafficCar('z', laneX, dir, scalar, 10 + hash2(laneX, scalar) * 6, palette[colorIndex++ % palette.length]);
       }
@@ -987,7 +1045,7 @@ function buildTrafficSystem() {
     for (const laneOffset of laneOffsets) {
       const laneZ = z + laneOffset;
       const dir = laneOffset < 0 ? -1 : 1;
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < performanceProfile.trafficPerLane; i++) {
         const scalar = -worldHalf + 40 + (i * 180) + hash2(laneZ, i + 10) * 55;
         spawnTrafficCar('x', laneZ, dir, scalar, 10 + hash2(laneZ, scalar) * 6, palette[colorIndex++ % palette.length]);
       }
@@ -1054,6 +1112,7 @@ function updateTraffic(dt) {
   trafficSignalState.elapsed += dt;
   updateTrafficSignalVisuals();
 
+  const focus = getActiveFocusPosition();
   const laneGroups = new Map();
   for (const car of trafficCars) {
     const key = `${car.axis}:${car.lane.toFixed(1)}:${car.dir}`;
@@ -1097,8 +1156,13 @@ function updateTraffic(dt) {
     car.scalar += car.dir * car.speed * dt;
     if (car.scalar > worldHalf + 20) car.scalar = -worldHalf - 20;
     if (car.scalar < -worldHalf - 20) car.scalar = worldHalf + 20;
-    car.wheelSpin += car.speed * dt / 0.38;
-    updateTrafficCarTransform(car);
+    const posX = car.axis === 'x' ? car.scalar : car.lane;
+    const posZ = car.axis === 'z' ? car.scalar : car.lane;
+    const dx = posX - focus.x;
+    const dz = posZ - focus.z;
+    const nearFocus = dx * dx + dz * dz < performanceProfile.aiUpdateRadius * performanceProfile.aiUpdateRadius;
+    if (nearFocus) car.wheelSpin += car.speed * dt / 0.38;
+    if (!performanceProfile.lowProfile || nearFocus || (frameIndex & 1) === 0) updateTrafficCarTransform(car);
   }
 }
 
@@ -1238,6 +1302,297 @@ function createPlayerCar() {
 
 const playerCar = createPlayerCar();
 
+<<<<<<< HEAD
+
+const carPresets = [
+  {
+    id: 'starter',
+    name: 'Metro Compact',
+    description: 'Balanced city hatch with forgiving grip and the quickest unlock.',
+    color: 0xcf2f2a,
+    unlockAfterMissions: 0,
+    length: 4.18,
+    width: 1.84,
+    wheelBase: 2.56,
+    engineForce: 23.5,
+    brakeForce: 31,
+    reverseForce: 14.5,
+    rollingResistance: 2.1,
+    aerodynamicDrag: 0.016,
+    sideGrip: 12.8,
+    sideGripHandbrake: 3.5,
+    maxSteer: 0.55,
+    steerSpeed: 5.3,
+    steerCrossSpeed: 2.85,
+    steerReturnSpeed: 6.1,
+    yawResponse: 5.9,
+    modelScale: { x: 0.96, y: 0.95, z: 0.95 }
+  },
+  {
+    id: 'sedan',
+    name: 'Pursuit Sedan',
+    description: 'Heavier, calmer, and better on long escape runs.',
+    color: 0x2a58a6,
+    unlockAfterMissions: 1,
+    length: 4.62,
+    width: 1.9,
+    wheelBase: 2.76,
+    engineForce: 25.5,
+    brakeForce: 33,
+    reverseForce: 15.5,
+    rollingResistance: 1.85,
+    aerodynamicDrag: 0.014,
+    sideGrip: 13.2,
+    sideGripHandbrake: 3.7,
+    maxSteer: 0.5,
+    steerSpeed: 4.9,
+    steerCrossSpeed: 2.65,
+    steerReturnSpeed: 5.8,
+    yawResponse: 5.6,
+    modelScale: { x: 1.02, y: 1.0, z: 1.05 }
+  },
+  {
+    id: 'coupe',
+    name: 'GT Coupe',
+    description: 'Sharper turn-in with stronger pull out of corners.',
+    color: 0xf2c14e,
+    unlockAfterMissions: 2,
+    length: 4.38,
+    width: 1.88,
+    wheelBase: 2.67,
+    engineForce: 28.5,
+    brakeForce: 34,
+    reverseForce: 16,
+    rollingResistance: 1.72,
+    aerodynamicDrag: 0.013,
+    sideGrip: 13.0,
+    sideGripHandbrake: 3.4,
+    maxSteer: 0.54,
+    steerSpeed: 5.7,
+    steerCrossSpeed: 3.1,
+    steerReturnSpeed: 6.5,
+    yawResponse: 6.2,
+    modelScale: { x: 1.0, y: 0.93, z: 1.0 }
+  },
+  {
+    id: 'super',
+    name: 'Apex R',
+    description: 'Fastest unlock reward with more power and tighter body control.',
+    color: 0x2fd2b4,
+    unlockAfterMissions: 3,
+    length: 4.5,
+    width: 1.96,
+    wheelBase: 2.74,
+    engineForce: 32.5,
+    brakeForce: 36,
+    reverseForce: 17.2,
+    rollingResistance: 1.55,
+    aerodynamicDrag: 0.011,
+    sideGrip: 13.6,
+    sideGripHandbrake: 3.15,
+    maxSteer: 0.52,
+    steerSpeed: 5.5,
+    steerCrossSpeed: 3.0,
+    steerReturnSpeed: 6.6,
+    yawResponse: 6.0,
+    modelScale: { x: 1.04, y: 0.9, z: 1.06 }
+  }
+];
+
+const hubState = {
+  open: false,
+  selectedModeId: 'racing',
+  selectedCarId: 'starter',
+  statusMessage: 'Choose a contract and a car.',
+  pendingStartModeId: 'racing'
+};
+
+const homeHub = {
+  position: new THREE.Vector3(-28, 0, 208),
+  radius: 12.5,
+  visual: null
+};
+
+function loadProgression() {
+  try {
+    const raw = window.localStorage.getItem(progressionStorageKey);
+    if (!raw) return { completedMissions: 0, selectedCarId: 'starter' };
+    const parsed = JSON.parse(raw);
+    return {
+      completedMissions: Number.isFinite(parsed.completedMissions) ? Math.max(0, parsed.completedMissions) : 0,
+      selectedCarId: typeof parsed.selectedCarId === 'string' ? parsed.selectedCarId : 'starter'
+    };
+  } catch (error) {
+    return { completedMissions: 0, selectedCarId: 'starter' };
+  }
+}
+
+const progression = loadProgression();
+
+function saveProgression() {
+  try {
+    window.localStorage.setItem(progressionStorageKey, JSON.stringify({
+      completedMissions: progression.completedMissions,
+      selectedCarId: progression.selectedCarId
+    }));
+  } catch (error) {}
+}
+
+function getUnlockedCars() {
+  return carPresets.filter((preset) => progression.completedMissions >= preset.unlockAfterMissions);
+}
+
+function isCarUnlocked(carId) {
+  return getUnlockedCars().some((preset) => preset.id === carId);
+}
+
+function getCarPreset(carId = vehicle.activeCarId) {
+  return carPresets.find((preset) => preset.id === carId) || carPresets[0];
+}
+
+function syncSelectedCarToUnlocks() {
+  if (!isCarUnlocked(progression.selectedCarId)) {
+    progression.selectedCarId = getUnlockedCars()[0].id;
+  }
+  hubState.selectedCarId = progression.selectedCarId;
+}
+
+function applyCarPreset(carId, resetTransform = false) {
+  const preset = getCarPreset(carId);
+  vehicle.activeCarId = preset.id;
+  vehicle.length = preset.length;
+  vehicle.width = preset.width;
+  vehicle.wheelBase = preset.wheelBase;
+  vehicle.engineForce = preset.engineForce;
+  vehicle.brakeForce = preset.brakeForce;
+  vehicle.reverseForce = preset.reverseForce;
+  vehicle.rollingResistance = preset.rollingResistance;
+  vehicle.aerodynamicDrag = preset.aerodynamicDrag;
+  vehicle.sideGrip = preset.sideGrip;
+  vehicle.sideGripHandbrake = preset.sideGripHandbrake;
+  vehicle.maxSteer = preset.maxSteer;
+  vehicle.steerSpeed = preset.steerSpeed;
+  vehicle.steerCrossSpeed = preset.steerCrossSpeed;
+  vehicle.steerReturnSpeed = preset.steerReturnSpeed;
+  vehicle.yawResponse = preset.yawResponse;
+  materials.carPaint.color.setHex(preset.color);
+  playerCar.root.scale.set(preset.modelScale.x, preset.modelScale.y, preset.modelScale.z);
+  progression.selectedCarId = preset.id;
+  hubState.selectedCarId = preset.id;
+  saveProgression();
+  if (resetTransform) resetVehicle();
+  updateHud();
+}
+
+function getCurrentCarName() {
+  return getCarPreset(vehicle.activeCarId).name;
+}
+
+function canOpenHub(ignoreSpeed = false) {
+  const focus = getActiveFocusPosition();
+  const maxDistance = playerState.inVehicle ? homeHub.radius + 3.2 : homeHub.radius;
+  if (focus.distanceTo(homeHub.position) > maxDistance) return false;
+  if (!ignoreSpeed && playerState.inVehicle && vehicle.speedKmh > 3) return false;
+  return true;
+}
+
+function clearAllInputs() {
+  for (const key of Object.keys(input)) input[key] = false;
+  for (const button of touchButtons) button.classList.remove('active');
+}
+
+function refreshHubUi() {
+  syncSelectedCarToUnlocks();
+  const unlockedCars = getUnlockedCars();
+  garageValue.textContent = `${unlockedCars.length} / ${carPresets.length}`;
+  carValue.textContent = getCurrentCarName();
+  hubProgressBadge.textContent = `${unlockedCars.length} / ${carPresets.length} unlocked`;
+
+  hubModeGrid.innerHTML = '';
+  for (const mode of hubModes) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `hub-card ${hubState.selectedModeId === mode.id ? 'selected' : ''}`;
+    card.innerHTML = `
+      <div class="hub-card-title">${mode.title}</div>
+      <div class="hub-card-copy">${mode.description}</div>
+      <div class="hub-card-meta">${mode.missions.length} missions · ${mode.tagline}</div>
+    `;
+    card.addEventListener('click', () => {
+      hubState.selectedModeId = mode.id;
+      hubState.pendingStartModeId = mode.id;
+      hubState.statusMessage = `${mode.title} selected. ${mode.description}`;
+      refreshHubUi();
+    });
+    hubModeGrid.appendChild(card);
+  }
+
+  hubCarGrid.innerHTML = '';
+  for (const preset of carPresets) {
+    const unlocked = isCarUnlocked(preset.id);
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `hub-card ${hubState.selectedCarId === preset.id ? 'selected' : ''} ${unlocked ? '' : 'locked'}`;
+    card.innerHTML = `
+      <div class="car-swatch" style="background:#${preset.color.toString(16).padStart(6, '0')}"></div>
+      <div class="hub-card-title">${preset.name}</div>
+      <div class="hub-card-copy">${preset.description}</div>
+      <div class="hub-card-meta">${unlocked ? 'Unlocked' : `Unlock after ${preset.unlockAfterMissions} mission${preset.unlockAfterMissions === 1 ? '' : 's'}`}</div>
+    `;
+    if (unlocked) {
+      card.addEventListener('click', () => {
+        hubState.selectedCarId = preset.id;
+        applyCarPreset(preset.id, true);
+        hubState.statusMessage = `${preset.name} ready in the garage.`;
+        refreshHubUi();
+      });
+    }
+    hubCarGrid.appendChild(card);
+  }
+
+  hubStatus.textContent = hubState.statusMessage;
+}
+
+function openHubOverlay(message = null) {
+  if (!gameStarted) return;
+  hubState.open = true;
+  clearMoveTarget();
+  clearAllInputs();
+  if (message) hubState.statusMessage = message;
+  refreshHubUi();
+  hubOverlay.classList.add('visible');
+}
+
+function closeHubOverlay() {
+  hubState.open = false;
+  hubOverlay.classList.remove('visible');
+  refreshHubUi();
+}
+
+function awardMissionUnlocks() {
+  const unlockedBefore = getUnlockedCars().map((preset) => preset.id);
+  progression.completedMissions += 1;
+  syncSelectedCarToUnlocks();
+  saveProgression();
+  return getUnlockedCars().filter((preset) => !unlockedBefore.includes(preset.id));
+}
+
+startModeButton.addEventListener('click', () => {
+  applyCarPreset(hubState.selectedCarId, true);
+  forceEnterVehicle();
+  const mode = hubModes.find((entry) => entry.id === hubState.selectedModeId) || hubModes[0];
+  hubState.statusMessage = `${mode.title} launched.`;
+  closeHubOverlay();
+  startMode(mode.id, `${mode.title} live. ${mode.description}`);
+});
+
+closeHubButton.addEventListener('click', () => {
+  closeHubOverlay();
+});
+
+
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 function createHumanoidMesh(scale = 1, palette = {}) {
   const group = new THREE.Group();
   const skin = new THREE.MeshStandardMaterial({ color: palette.skin || 0xc89273, roughness: 0.92 });
@@ -1359,8 +1714,13 @@ function createHumanoidMesh(scale = 1, palette = {}) {
   group.scale.setScalar(scale);
   group.traverse((child) => {
     if (child.isMesh) {
+<<<<<<< HEAD
+      child.castShadow = !performanceProfile.lowProfile;
+      child.receiveShadow = !performanceProfile.lowProfile;
+=======
       child.castShadow = true;
       child.receiveShadow = true;
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     }
   });
 
@@ -1439,7 +1799,12 @@ const vehicle = {
   steerSpeed: 5.4,
   steerCrossSpeed: 2.35,
   steerReturnSpeed: 6.0,
+<<<<<<< HEAD
+  yawResponse: 5.95,
+  activeCarId: 'starter'
+=======
   yawResponse: 5.95
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 };
 
 const playerState = {
@@ -1455,6 +1820,25 @@ const playerState = {
   hornPulse: 0,
   moveTarget: new THREE.Vector3(),
   moveTargetActive: false,
+<<<<<<< HEAD
+  moveTargetRun: false,
+  transitionLock: 0
+};
+
+function getCarDoorPosition(side = 'left', extraSideOffset = 0) {
+  const right = vehicleRight();
+  const baseOffset = vehicle.width * 0.92 + extraSideOffset;
+  const offset = side === 'left' ? -baseOffset : baseOffset;
+  return vehicle.position.clone().addScaledVector(right, offset).addScaledVector(vehicleForward(), -vehicle.length * 0.08);
+}
+
+function resetOnFootNearCar() {
+  const candidates = [
+    getCarDoorPosition('left', 0.55),
+    getCarDoorPosition('right', 0.55),
+    vehicle.position.clone().addScaledVector(vehicleForward(), -4.6)
+  ];
+=======
   moveTargetRun: false
 };
 
@@ -1466,6 +1850,7 @@ function getCarDoorPosition(side = 'left') {
 
 function resetOnFootNearCar() {
   const candidates = [getCarDoorPosition('left'), getCarDoorPosition('right'), vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   for (const candidate of candidates) {
     const p = candidate.clone();
     if (!resolveCircleCollisions(p, playerState.radius, true) || p.distanceTo(candidate) < 0.6) {
@@ -1482,6 +1867,32 @@ function resetOnFootNearCar() {
   updatePlayerAvatar(0);
 }
 
+<<<<<<< HEAD
+function forceEnterVehicle() {
+  clearMoveTarget();
+  playerState.inVehicle = true;
+  playerState.transitionLock = 0.28;
+  playerState.velocity.set(0, 0, 0);
+  playerState.position.copy(vehicle.position);
+  playerState.heading = vehicle.heading;
+  playerAvatar.root.visible = false;
+  updatePlayerAvatar(0);
+  snapCameraToControlledEntity();
+  updateHud();
+}
+
+function enterVehicle() {
+  if (vehicle.speedKmh > 2.5) return false;
+  forceEnterVehicle();
+  return true;
+}
+
+function exitVehicle() {
+  const left = getCarDoorPosition('left', 0.75);
+  const rightPos = getCarDoorPosition('right', 0.75);
+  const rear = vehicle.position.clone().addScaledVector(vehicleForward(), -4.8);
+  const options = [left, rightPos, rear];
+=======
 function enterVehicle() {
   if (vehicle.speedKmh > 2.5) return;
   clearMoveTarget();
@@ -1495,27 +1906,78 @@ function exitVehicle() {
   const left = getCarDoorPosition('left');
   const rightPos = getCarDoorPosition('right');
   const options = [left, rightPos, vehicle.position.clone().addScaledVector(vehicleForward(), -3.6)];
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
   for (const option of options) {
     const p = option.clone();
     resolveCircleCollisions(p, playerState.radius, true);
+<<<<<<< HEAD
+    if (p.distanceTo(option) < 1.15) {
+=======
     if (p.distanceTo(option) < 0.8) {
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
       playerState.position.copy(p);
       playerState.position.y = 0;
       playerState.heading = vehicle.heading + Math.PI * 0.5;
       playerState.velocity.set(0, 0, 0);
       clearMoveTarget();
       playerState.inVehicle = false;
+<<<<<<< HEAD
+      playerState.transitionLock = 0.42;
+      playerAvatar.root.visible = playerState.cameraMode === 'third';
+      updatePlayerAvatar(0);
+      snapCameraToControlledEntity();
+      updateHud();
+      return true;
+    }
+  }
+
+  resetOnFootNearCar();
+  playerState.inVehicle = false;
+  playerState.transitionLock = 0.42;
+  playerAvatar.root.visible = playerState.cameraMode === 'third';
+  updatePlayerAvatar(0);
+  snapCameraToControlledEntity();
+  updateHud();
+  return true;
+=======
       playerAvatar.root.visible = playerState.cameraMode === 'third';
       updatePlayerAvatar(0);
       updateHud();
       return;
     }
   }
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function handleInteract() {
   if (!gameStarted) return;
+<<<<<<< HEAD
+  if (hubState.open) {
+    closeHubOverlay();
+    return;
+  }
+
+  if (playerState.inVehicle) {
+    if (vehicle.speedKmh < 3) {
+      exitVehicle();
+      return;
+    }
+    return;
+  }
+
+  const doorLeft = getCarDoorPosition('left');
+  const doorRight = getCarDoorPosition('right');
+  const nearDoor = Math.min(playerState.position.distanceTo(doorLeft), playerState.position.distanceTo(doorRight));
+  if (nearDoor < 2.7 && vehicle.speedKmh < 3) {
+    enterVehicle();
+    return;
+  }
+
+  if (canOpenHub()) {
+    openHubOverlay('Home hub open. Pick a mode or switch cars.');
+  }
+=======
   if (playerState.inVehicle) {
     if (vehicle.speedKmh < 3) exitVehicle();
     return;
@@ -1524,6 +1986,7 @@ function handleInteract() {
   const doorRight = getCarDoorPosition('right');
   const nearDoor = Math.min(playerState.position.distanceTo(doorLeft), playerState.position.distanceTo(doorRight));
   if (nearDoor < 2.7 && vehicle.speedKmh < 3) enterVehicle();
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 }
 
 function toggleCameraMode() {
@@ -1544,6 +2007,8 @@ function resetVehicle() {
   vehicle.suspensionOffset = 0;
   vehicle.suspensionVelocity = 0;
   vehicle.lastForwardSpeed = 0;
+  vehicle.speedKmh = 0;
+  vehicle.gear = 'N';
   updateCarModel();
 }
 
@@ -1860,6 +2325,23 @@ function updateHud() {
   gearValue.textContent = playerState.inVehicle ? vehicle.gear : 'ON';
   modeValue.textContent = playerState.inVehicle ? 'Driving' : 'On foot';
   cameraValue.textContent = playerState.cameraMode === 'third' ? 'Third person' : 'First person';
+<<<<<<< HEAD
+  carValue.textContent = getCurrentCarName();
+  garageValue.textContent = `${getUnlockedCars().length} / ${carPresets.length}`;
+
+  if (hubState.open) {
+    interactionHint.textContent = 'Home hub open · Pick a mode, a car, or close the board';
+    return;
+  }
+
+  if (canOpenHub()) {
+    interactionHint.textContent = playerState.inVehicle
+      ? 'E to open home hub · C camera · H horn'
+      : 'E to open home hub · Shift sprint · Tap ground to move';
+    return;
+  }
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 
   if (playerState.inVehicle) {
     interactionHint.textContent = vehicle.speedKmh < 3 ? 'E to exit car · C camera · H horn' : 'Slow down to exit · C camera · H horn';
@@ -1922,7 +2404,11 @@ function buildPedestrianSystem() {
   for (const x of roadCenters) {
     const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
     for (const offset of sidewalkOffsets) {
+<<<<<<< HEAD
+      for (let i = 0; i < performanceProfile.pedestriansPerSidewalk; i++) {
+=======
       for (let i = 0; i < 3; i++) {
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
         const scalar = -worldHalf + 38 + i * 190 + hash2(x + offset, i + 20) * 42;
         createPedestrian('z', x + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
       }
@@ -1932,7 +2418,11 @@ function buildPedestrianSystem() {
   for (const z of roadCenters) {
     const sidewalkOffsets = [-(roadHalf + 4.6), roadHalf + 4.6];
     for (const offset of sidewalkOffsets) {
+<<<<<<< HEAD
+      for (let i = 0; i < performanceProfile.pedestriansPerSidewalk; i++) {
+=======
       for (let i = 0; i < 3; i++) {
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
         const scalar = -worldHalf + 52 + i * 180 + hash2(z + offset, i + 40) * 45;
         createPedestrian('x', z + offset, scalar, i % 2 === 0 ? 1 : -1, paletteIndex++);
       }
@@ -1965,12 +2455,23 @@ function updatePedestrianTransform(pedestrian, dt) {
 
 function updatePedestrians(dt) {
   const threatPos = playerState.inVehicle ? vehicle.position : playerState.position;
+<<<<<<< HEAD
+  const focus = getActiveFocusPosition();
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   const threatVelocity = playerState.inVehicle ? vehicle.velocity : playerState.velocity;
   const threatSpeed = threatVelocity.length();
   const hornInfluence = input.horn && playerState.inVehicle;
 
   for (const pedestrian of pedestrians) {
     const pos = getPedestrianWorldPosition(pedestrian);
+<<<<<<< HEAD
+    const focusDx = pos.x - focus.x;
+    const focusDz = pos.z - focus.z;
+    const nearFocus = focusDx * focusDx + focusDz * focusDz < performanceProfile.aiUpdateRadius * performanceProfile.aiUpdateRadius;
+    if (performanceProfile.lowProfile && !nearFocus && (frameIndex & 1) === 1) continue;
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     const dx = pos.x - threatPos.x;
     const dz = pos.z - threatPos.z;
     const dist = Math.hypot(dx, dz);
@@ -2095,96 +2596,190 @@ missionMarker.add(missionBeam);
 scene.add(missionMarker);
 missionMarker.visible = false;
 
-const missionDefinitions = [
+
+const hubModes = [
   {
-    type: 'route',
-    title: 'Downtown Sprint',
-    description: 'Run the downtown line and hit each checkpoint in order.',
-    timeLimit: 105,
-    checkpointLabels: ['Start Gate', 'West Block', 'South Turn', 'Return Gate'],
-    checkpoints: [
-      new THREE.Vector3(0, 0, 90),
-      new THREE.Vector3(-120, 0, 90),
-      new THREE.Vector3(-120, 0, -30),
-      new THREE.Vector3(0, 0, -30)
+    id: 'racing',
+    title: 'Street Racing',
+    tagline: 'checkpoint races',
+    description: 'Pure checkpoint races across the city grid with longer finals.',
+    missions: [
+      {
+        type: 'route',
+        title: 'Downtown Sprint',
+        description: 'Run the downtown line and hit each checkpoint in order.',
+        timeLimit: 105,
+        checkpointLabels: ['Start Gate', 'West Block', 'South Turn', 'Return Gate'],
+        checkpoints: [
+          new THREE.Vector3(0, 0, 90),
+          new THREE.Vector3(-120, 0, 90),
+          new THREE.Vector3(-120, 0, -30),
+          new THREE.Vector3(0, 0, -30)
+        ]
+      },
+      {
+        type: 'route',
+        title: 'Ring Road Run',
+        description: 'Complete the long perimeter route cleanly.',
+        timeLimit: 170,
+        checkpointLabels: ['North-East', 'North-West', 'South-West', 'South-East'],
+        checkpoints: [
+          new THREE.Vector3(240, 0, 240),
+          new THREE.Vector3(-240, 0, 240),
+          new THREE.Vector3(-240, 0, -240),
+          new THREE.Vector3(240, 0, -240)
+        ]
+      },
+      {
+        type: 'route',
+        title: 'City Grand Tour',
+        description: 'String together a full cross-city run without wasting time.',
+        timeLimit: 188,
+        checkpointLabels: ['East Gate', 'Central Square', 'West Dip', 'North Lift', 'Finish'],
+        checkpoints: [
+          new THREE.Vector3(240, 0, 120),
+          new THREE.Vector3(120, 0, 0),
+          new THREE.Vector3(-120, 0, -120),
+          new THREE.Vector3(-120, 0, 120),
+          new THREE.Vector3(0, 0, 240)
+        ]
+      }
     ]
   },
   {
-    type: 'delivery',
-    title: 'Courier Shift',
-    description: 'Pick up the parcel downtown, then deliver it to the north blocks.',
-    timeLimit: 118,
-    checkpointLabels: ['Pickup', 'Cut Across', 'Drop-off'],
-    checkpoints: [
-      new THREE.Vector3(-120, 0, 90),
-      new THREE.Vector3(0, 0, 90),
-      new THREE.Vector3(120, 0, 210)
+    id: 'heist',
+    title: 'Cops & Robbers',
+    tagline: 'grab and getaway',
+    description: 'Hit the target, keep moving, and get the car back to the safehouse before the heat catches up.',
+    missions: [
+      {
+        type: 'getaway',
+        title: 'Corner Store Lift',
+        description: 'Hit the store, cut across downtown, and get back to the safehouse.',
+        timeLimit: 110,
+        minEscapeSpeedKmh: 12,
+        maxBoxedInTime: 5,
+        checkpointLabels: ['Target', 'Escape Cut', 'Safehouse'],
+        checkpoints: [
+          new THREE.Vector3(-120, 0, 90),
+          new THREE.Vector3(-120, 0, -30),
+          homeHub.position.clone()
+        ]
+      },
+      {
+        type: 'getaway',
+        title: 'Diamond Dash',
+        description: 'Grab the package on the east side, stay moving, and tuck into the home hub.',
+        timeLimit: 120,
+        minEscapeSpeedKmh: 14,
+        maxBoxedInTime: 5.2,
+        checkpointLabels: ['Lift', 'Cross Streets', 'Safehouse'],
+        checkpoints: [
+          new THREE.Vector3(240, 0, 90),
+          new THREE.Vector3(120, 0, -30),
+          homeHub.position.clone()
+        ]
+      }
     ]
   },
   {
-    type: 'speedTrap',
-    title: 'Boulevard Speed Trap',
-    description: 'Build speed on the avenue and hit the camera fast enough.',
-    timeLimit: 82,
-    minSpeedKmh: 72,
-    checkpointLabels: ['Approach', 'Speed Trap'],
-    checkpoints: [
-      new THREE.Vector3(-240, 0, -30),
-      new THREE.Vector3(120, 0, -30)
+    id: 'courier',
+    title: 'Courier Run',
+    tagline: 'delivery contracts',
+    description: 'Pickup-and-drop delivery jobs with cleaner lines and shorter mistakes.',
+    missions: [
+      {
+        type: 'delivery',
+        title: 'Courier Shift',
+        description: 'Pick up the parcel downtown, then deliver it to the north blocks.',
+        timeLimit: 118,
+        checkpointLabels: ['Pickup', 'Cut Across', 'Drop-off'],
+        checkpoints: [
+          new THREE.Vector3(-120, 0, 90),
+          new THREE.Vector3(0, 0, 90),
+          new THREE.Vector3(120, 0, 210)
+        ]
+      },
+      {
+        type: 'delivery',
+        title: 'Night Freight',
+        description: 'Run two drops across the river of traffic and finish in the west lots.',
+        timeLimit: 132,
+        checkpointLabels: ['Warehouse', 'Mid-city Cut', 'Final Drop'],
+        checkpoints: [
+          new THREE.Vector3(240, 0, -30),
+          new THREE.Vector3(120, 0, 90),
+          new THREE.Vector3(-120, 0, 210)
+        ]
+      }
     ]
   },
   {
-    type: 'precisionStop',
-    title: 'Precision Parking',
-    description: 'Slide into the marked bay and stop the car cleanly inside the zone.',
-    timeLimit: 70,
-    maxEntrySpeedKmh: 8,
-    checkpointLabels: ['Parking Bay'],
-    checkpoints: [
-      new THREE.Vector3(240, 0, 90)
-    ]
-  },
-  {
-    type: 'route',
-    title: 'Ring Road Run',
-    description: 'Complete the long perimeter route cleanly.',
-    timeLimit: 170,
-    checkpointLabels: ['North-East', 'North-West', 'South-West', 'South-East'],
-    checkpoints: [
-      new THREE.Vector3(240, 0, 240),
-      new THREE.Vector3(-240, 0, 240),
-      new THREE.Vector3(-240, 0, -240),
-      new THREE.Vector3(240, 0, -240)
-    ]
-  },
-  {
-    type: 'route',
-    title: 'City Grand Tour',
-    description: 'String together a full cross-city run without wasting time.',
-    timeLimit: 188,
-    checkpointLabels: ['East Gate', 'Central Square', 'West Dip', 'North Lift', 'Finish'],
-    checkpoints: [
-      new THREE.Vector3(240, 0, 120),
-      new THREE.Vector3(120, 0, 0),
-      new THREE.Vector3(-120, 0, -120),
-      new THREE.Vector3(-120, 0, 120),
-      new THREE.Vector3(0, 0, 240)
+    id: 'precision',
+    title: 'Precision Trials',
+    tagline: 'speed and control',
+    description: 'Speed-trap hits and precision parking jobs that reward smooth control.',
+    missions: [
+      {
+        type: 'speedTrap',
+        title: 'Boulevard Speed Trap',
+        description: 'Build speed on the avenue and hit the camera fast enough.',
+        timeLimit: 82,
+        minSpeedKmh: 72,
+        checkpointLabels: ['Approach', 'Speed Trap'],
+        checkpoints: [
+          new THREE.Vector3(-240, 0, -30),
+          new THREE.Vector3(120, 0, -30)
+        ]
+      },
+      {
+        type: 'precisionStop',
+        title: 'Precision Parking',
+        description: 'Slide into the marked bay and stop the car cleanly inside the zone.',
+        timeLimit: 70,
+        maxEntrySpeedKmh: 8,
+        checkpointLabels: ['Parking Bay'],
+        checkpoints: [
+          new THREE.Vector3(240, 0, 90)
+        ]
+      },
+      {
+        type: 'speedTrap',
+        title: 'Northbound Audit',
+        description: 'Use the upper boulevard and clip the trap at full commitment.',
+        timeLimit: 92,
+        minSpeedKmh: 80,
+        checkpointLabels: ['Approach', 'North Trap'],
+        checkpoints: [
+          new THREE.Vector3(-240, 0, 210),
+          new THREE.Vector3(240, 0, 210)
+        ]
+      }
     ]
   }
 ];
 
 const missionState = {
+  currentModeId: 'racing',
   currentMissionIndex: 0,
   currentCheckpointIndex: 0,
   active: false,
-  completedLoopCount: 0,
   timeLeft: 0,
   checkpointCooldown: 0,
-  message: 'Press Play to start driving.'
+  message: 'Press Play to enter the home hub.',
+  policeBoxedInTimer: 0
 };
 
+function getModeDefinition(modeId = missionState.currentModeId) {
+  return hubModes.find((mode) => mode.id === modeId) || hubModes[0];
+}
+
+function getCurrentMissionList() {
+  return getModeDefinition().missions;
+}
+
 function getCurrentMission() {
-  return missionDefinitions[missionState.currentMissionIndex];
+  return getCurrentMissionList()[missionState.currentMissionIndex];
 }
 
 function getCurrentCheckpoint() {
@@ -2199,18 +2794,31 @@ function getCurrentCheckpointLabel() {
 function getMissionRequirementText(mission) {
   if (mission.type === 'speedTrap') return `Hit the trap at ${mission.minSpeedKmh}+ km/h`;
   if (mission.type === 'precisionStop') return `Enter under ${mission.maxEntrySpeedKmh} km/h`;
-  if (mission.type === 'delivery') return 'Keep the line clean and make the drop on time';
+  if (mission.type === 'delivery') return 'Keep the package line smooth';
+  if (mission.type === 'getaway') {
+    if (missionState.currentCheckpointIndex === 0) return 'Get to the score';
+    return `Stay above ${mission.minEscapeSpeedKmh} km/h or the cops close in`;
+  }
   return 'Stay clean and keep the route flowing';
 }
 
-function startMission(index, introMessage = null) {
-  const mission = missionDefinitions[index % missionDefinitions.length];
-  missionState.currentMissionIndex = index % missionDefinitions.length;
+function startMode(modeId, introMessage = null) {
+  missionState.currentModeId = modeId;
+  missionState.currentMissionIndex = 0;
+  startMissionInMode(0, introMessage || getModeDefinition(modeId).description);
+}
+
+function startMissionInMode(index, introMessage = null) {
+  const missions = getCurrentMissionList();
+  const mission = missions[index % missions.length];
+  missionState.currentMissionIndex = index % missions.length;
   missionState.currentCheckpointIndex = 0;
   missionState.active = true;
   missionState.timeLeft = mission.timeLimit;
   missionState.checkpointCooldown = 0;
+  missionState.policeBoxedInTimer = 0;
   missionState.message = introMessage || mission.description;
+  forceEnterVehicle();
   missionMarker.visible = true;
   placeMissionMarker();
   updateMissionHud();
@@ -2222,10 +2830,23 @@ function placeMissionMarker() {
 }
 
 function completeMission(completionText) {
-  let nextIndex = (missionState.currentMissionIndex + 1) % missionDefinitions.length;
-  if (nextIndex === 0) missionState.completedLoopCount += 1;
-  const nextMission = missionDefinitions[nextIndex];
-  startMission(nextIndex, `${completionText} ${nextMission.description}`);
+  const unlockedCars = awardMissionUnlocks();
+  const unlockText = unlockedCars.length
+    ? ` New car unlocked: ${unlockedCars.map((car) => car.name).join(', ')}.`
+    : '';
+
+  const missions = getCurrentMissionList();
+  const nextIndex = missionState.currentMissionIndex + 1;
+
+  if (nextIndex < missions.length) {
+    startMissionInMode(nextIndex, `${completionText}${unlockText} ${missions[nextIndex].description}`);
+  } else {
+    missionState.active = false;
+    missionMarker.visible = false;
+    missionState.message = `${completionText}${unlockText} ${getModeDefinition().title} complete. Return to the board for another mode.`;
+    updateMissionHud();
+    openHubOverlay(missionState.message);
+  }
 }
 
 function advanceMission(stageMessage = null) {
@@ -2235,23 +2856,29 @@ function advanceMission(stageMessage = null) {
 
   if (missionState.currentCheckpointIndex >= mission.checkpoints.length) {
     const completionText = mission.type === 'delivery'
-      ? 'Delivery complete. Next contract loaded.'
+      ? 'Delivery complete.'
       : mission.type === 'precisionStop'
-        ? 'Parking job complete. New mission loaded.'
+        ? 'Parking job complete.'
         : mission.type === 'speedTrap'
-          ? 'Speed trap cleared. New challenge loaded.'
-          : 'Route complete. Next mission loaded.';
+          ? 'Speed trial cleared.'
+          : mission.type === 'getaway'
+            ? 'You lost the heat and made it back.'
+            : 'Race complete.';
     completeMission(completionText);
     return;
   }
 
-  missionState.message = stageMessage || mission.description;
+  if (mission.type === 'getaway' && missionState.currentCheckpointIndex === 1) {
+    missionState.message = 'Loot secured. Keep your speed up and get clear.';
+  } else {
+    missionState.message = stageMessage || mission.description;
+  }
   placeMissionMarker();
   updateMissionHud();
 }
 
 function failMission(reason = 'Time expired. Mission restarted.') {
-  startMission(missionState.currentMissionIndex, reason);
+  startMissionInMode(missionState.currentMissionIndex, reason);
 }
 
 function updateMission(dt) {
@@ -2268,6 +2895,16 @@ function updateMission(dt) {
   if (missionState.timeLeft <= 0) {
     failMission();
     return;
+  }
+
+  if (mission.type === 'getaway' && missionState.currentCheckpointIndex > 0) {
+    if (vehicle.speedKmh < mission.minEscapeSpeedKmh) missionState.policeBoxedInTimer += dt;
+    else missionState.policeBoxedInTimer = Math.max(0, missionState.policeBoxedInTimer - dt * 1.5);
+
+    if (missionState.policeBoxedInTimer > mission.maxBoxedInTime) {
+      failMission('You got boxed in. Retry the getaway.');
+      return;
+    }
   }
 
   missionRing.rotation.z += dt * 0.85;
@@ -2299,22 +2936,26 @@ function updateMission(dt) {
 
 function updateMissionHud(distance = null) {
   if (!missionState.active) {
-    missionTitle.textContent = 'Get rolling';
+    missionTitle.textContent = 'Home Hub';
     missionText.textContent = missionState.message;
-    missionMeta.textContent = 'Checkpoint —';
+    missionMeta.textContent = 'Choose a mode from the safehouse board';
     return;
   }
 
   const mission = getCurrentMission();
+  const mode = getModeDefinition();
   const checkpointLabel = getCurrentCheckpointLabel();
-  missionTitle.textContent = mission.title;
+  missionTitle.textContent = `${mode.title} — ${mission.title}`;
   missionText.textContent = missionState.message || mission.description;
 
   const checkpointIndex = missionState.currentCheckpointIndex + 1;
   const checkpointText = `${checkpointLabel} ${checkpointIndex}/${mission.checkpoints.length}`;
   const distanceText = distance == null ? '--' : `${Math.round(distance)} m`;
   const requirementText = getMissionRequirementText(mission);
-  missionMeta.textContent = `${checkpointText} · ${distanceText} · ${requirementText} · ${missionState.timeLeft.toFixed(0)}s`;
+  const extraText = mission.type === 'getaway' && missionState.currentCheckpointIndex > 0
+    ? ` · Heat ${Math.max(0, mission.maxBoxedInTime - missionState.policeBoxedInTimer).toFixed(1)}s`
+    : '';
+  missionMeta.textContent = `${checkpointText} · ${distanceText} · ${requirementText}${extraText} · ${missionState.timeLeft.toFixed(0)}s`;
 }
 
 // ------------------------------------------------------------
@@ -2375,6 +3016,69 @@ function updateCamera(dt) {
 
   camera.position.copy(cameraState.currentPosition);
   camera.lookAt(cameraState.currentTarget);
+}
+
+function snapCameraToControlledEntity() {
+  let desiredPosition;
+  let desiredTarget;
+
+  if (playerState.inVehicle) {
+    const forward = vehicleForward();
+    const speedFactor = clamp(vehicle.speedKmh / 140, 0, 1);
+    if (playerState.cameraMode === 'first') {
+      desiredPosition = vehicle.position.clone()
+        .addScaledVector(forward, 0.92)
+        .addScaledVector(vehicleRight(), vehicle.steer * 0.08)
+        .add(new THREE.Vector3(0, 1.45, 0));
+      desiredTarget = desiredPosition.clone()
+        .addScaledVector(forward, 14)
+        .add(new THREE.Vector3(0, 0.15, 0));
+    } else {
+      const height = lerp(4.6, 5.7, speedFactor);
+      const distance = lerp(8.8, 11.8, speedFactor);
+      const sideBias = vehicle.steer * 1.1;
+      const lookAhead = lerp(4.8, 8.8, speedFactor);
+      desiredPosition = vehicle.position.clone()
+        .addScaledVector(forward, -distance)
+        .addScaledVector(vehicleRight(), sideBias)
+        .add(new THREE.Vector3(0, height, 0));
+      desiredTarget = vehicle.position.clone()
+        .addScaledVector(forward, lookAhead)
+        .add(new THREE.Vector3(0, 1.15, 0));
+    }
+  } else {
+    const forward = new THREE.Vector3(Math.sin(playerState.heading), 0, Math.cos(playerState.heading));
+    const right = new THREE.Vector3(Math.cos(playerState.heading), 0, -Math.sin(playerState.heading));
+    if (playerState.cameraMode === 'first') {
+      desiredPosition = playerState.position.clone().add(new THREE.Vector3(0, 1.64, 0));
+      desiredTarget = desiredPosition.clone().addScaledVector(forward, 12);
+    } else {
+      desiredPosition = playerState.position.clone()
+        .addScaledVector(forward, -4.3)
+        .addScaledVector(right, 0.35)
+        .add(new THREE.Vector3(0, 2.1, 0));
+      desiredTarget = playerState.position.clone()
+        .addScaledVector(forward, 3.8)
+        .add(new THREE.Vector3(0, 1.25, 0));
+    }
+  }
+
+  cameraState.currentPosition.copy(desiredPosition);
+  cameraState.currentTarget.copy(desiredTarget);
+  camera.position.copy(desiredPosition);
+  camera.lookAt(desiredTarget);
+}
+
+function syncControlState(dt) {
+  playerState.transitionLock = Math.max(0, playerState.transitionLock - dt);
+
+  if (!playerState.inVehicle) {
+    const tooCloseToCar = playerState.position.distanceTo(vehicle.position) < Math.max(1.15, vehicle.width * 0.52);
+    if (tooCloseToCar && playerState.transitionLock <= 0) {
+      resetOnFootNearCar();
+      snapCameraToControlledEntity();
+    }
+  }
 }
 
 // ------------------------------------------------------------
@@ -2441,6 +3145,13 @@ function drawMinimap() {
   ctx.fillStyle = 'rgba(147, 199, 255, 0.82)';
   for (const pedestrian of pedestrians) {
     const pos = getPedestrianWorldPosition(pedestrian);
+<<<<<<< HEAD
+    const focusDx = pos.x - focus.x;
+    const focusDz = pos.z - focus.z;
+    const nearFocus = focusDx * focusDx + focusDz * focusDz < performanceProfile.aiUpdateRadius * performanceProfile.aiUpdateRadius;
+    if (performanceProfile.lowProfile && !nearFocus && (frameIndex & 1) === 1) continue;
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
     if (Math.abs(pos.x - originX) > minimapRange || Math.abs(pos.z - originZ) > minimapRange) continue;
     const p = mapWorldToMinimap(pos.x, pos.z, originX, originZ, scale);
     ctx.beginPath();
@@ -2518,6 +3229,25 @@ function drawMinimap() {
       ctx.fill();
       ctx.restore();
     }
+<<<<<<< HEAD
+  }
+
+  const hubVisible = Math.abs(homeHub.position.x - originX) <= minimapRange && Math.abs(homeHub.position.z - originZ) <= minimapRange;
+  if (hubVisible) {
+    const hubPos = mapWorldToMinimap(homeHub.position.x, homeHub.position.z, originX, originZ, scale);
+    ctx.save();
+    ctx.translate(hubPos.x, hubPos.y);
+    ctx.fillStyle = '#7ad6ff';
+    ctx.fillRect(-5, -4, 10, 8);
+    ctx.beginPath();
+    ctx.moveTo(-7, -4);
+    ctx.lineTo(0, -11);
+    ctx.lineTo(7, -4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   }
 
   const cx = width * 0.5;
@@ -2540,6 +3270,58 @@ function drawMinimap() {
   ctx.strokeRect(1, 1, width - 2, height - 2);
 }
 
+
+function createHomeHub() {
+  const group = new THREE.Group();
+
+  const pad = new THREE.Mesh(
+    new THREE.CylinderGeometry(homeHub.radius * 0.8, homeHub.radius * 0.86, 0.28, 36),
+    new THREE.MeshStandardMaterial({ color: 0x1a2130, roughness: 0.72, metalness: 0.2, emissive: 0x0d1730, emissiveIntensity: 0.35 })
+  );
+  pad.position.y = 0.12;
+  pad.receiveShadow = true;
+  group.add(pad);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(homeHub.radius * 0.72, 0.28, 10, 42),
+    new THREE.MeshStandardMaterial({ color: 0x78d2ff, roughness: 0.3, metalness: 0.45, emissive: 0x56b6ff, emissiveIntensity: 0.65 })
+  );
+  ring.rotation.x = Math.PI * 0.5;
+  ring.position.y = 0.22;
+  group.add(ring);
+
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.8, 2.8, 16, 18, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0x7ad6ff, emissive: 0x56b6ff, emissiveIntensity: 0.45, transparent: true, opacity: 0.16, depthWrite: false })
+  );
+  beam.position.y = 8;
+  group.add(beam);
+
+  const houseBase = makeBox(3.2, 2.3, 2.6, new THREE.MeshStandardMaterial({ color: 0x293443, roughness: 0.86 }));
+  houseBase.position.set(0, 1.15, -homeHub.radius * 0.28);
+  houseBase.castShadow = true;
+  group.add(houseBase);
+
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(2.4, 1.4, 4),
+    new THREE.MeshStandardMaterial({ color: 0x4a5c75, roughness: 0.78 })
+  );
+  roof.rotation.y = Math.PI * 0.25;
+  roof.position.set(0, 3.0, -homeHub.radius * 0.28);
+  roof.castShadow = true;
+  group.add(roof);
+
+  group.position.copy(homeHub.position);
+  scene.add(group);
+  homeHub.visual = { group, ring, beam };
+}
+
+function updateHomeHubVisual(dt) {
+  if (!homeHub.visual) return;
+  homeHub.visual.ring.rotation.z += dt * 0.7;
+  homeHub.visual.beam.material.opacity = 0.12 + Math.sin(performance.now() * 0.003) * 0.03 + 0.03;
+}
+
 // ------------------------------------------------------------
 // World bootstrapping
 // ------------------------------------------------------------
@@ -2553,6 +3335,7 @@ function buildWorld() {
   updateTrafficSignalVisuals();
   createBoundaryBarriers();
   createDecorProps();
+  createHomeHub();
   buildTrafficSystem();
   buildPedestrianSystem();
   updateCarModel();
@@ -2562,8 +3345,14 @@ function buildWorld() {
 }
 
 buildWorld();
+syncSelectedCarToUnlocks();
+applyCarPreset(progression.selectedCarId, true);
 resizeMinimapCanvas();
 updateMobileUi();
+<<<<<<< HEAD
+refreshHubUi();
+=======
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
 loading.classList.remove('visible');
 
 // ------------------------------------------------------------
@@ -2576,25 +3365,46 @@ playButton.addEventListener('click', () => {
   menu.classList.remove('visible');
   hud.classList.remove('hidden');
   clock.start();
-  startMission(0);
+  openHubOverlay('Welcome to the home hub. Pick a mode and your current unlocked car.');
+  updateMissionHud();
 });
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, performanceProfile.pixelRatioCap));
   resizeMinimapCanvas();
   updateMobileUi();
 });
 
 function animate() {
   requestAnimationFrame(animate);
+  frameIndex++;
 
   const dt = Math.min(clock.getDelta() || 0.016, 0.033);
 
   if (gameStarted) {
+    syncControlState(dt);
     updateTraffic(dt);
+<<<<<<< HEAD
+    updatePedestrians(dt);
+    updateHomeHubVisual(dt);
+    if (!hubState.open) {
+      if (playerState.inVehicle) {
+        updateVehicle(dt);
+      } else {
+        updateOnFoot(dt);
+      }
+      updateMission(dt);
+      playerState.hornPulse = damp(playerState.hornPulse, input.horn ? 1 : 0, input.horn ? 10 : 5, dt);
+    } else {
+      clearAllInputs();
+      updateHud();
+    }
+    updateCamera(dt);
+    if (performanceProfile.minimapFrameSkip === 0 || (frameIndex % (performanceProfile.minimapFrameSkip + 1)) === 0) drawMinimap();
+=======
     if (playerState.inVehicle) {
       updateVehicle(dt);
     } else {
@@ -2605,6 +3415,7 @@ function animate() {
     updateCamera(dt);
     drawMinimap();
     playerState.hornPulse = damp(playerState.hornPulse, input.horn ? 1 : 0, input.horn ? 10 : 5, dt);
+>>>>>>> 9069b9c3aca214a851ef490cb81bce266a723216
   } else {
     const idleTarget = new THREE.Vector3(vehicle.position.x - 6, 4.4, vehicle.position.z + 8);
     camera.position.lerp(idleTarget, 0.02);
