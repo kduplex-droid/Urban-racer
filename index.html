@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Urban Drive Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="menu" class="overlay visible">
+      <div class="menu-panel">
+        <p class="eyebrow">Three.js browser driving prototype</p>
+        <h1>Urban Drive</h1>
+        <p class="menu-copy">
+          Drive a modern sport coupe through a stylized city with smoother handling, lane traffic,
+          world collisions, missions, and a retractable mini map.
+        </p>
+
+        <div class="menu-grid">
+          <div>
+            <span class="label">Controls</span>
+            <ul>
+              <li><strong>W</strong> accelerate</li>
+              <li><strong>S</strong> brake / reverse</li>
+              <li><strong>A / D</strong> steer</li>
+              <li><strong>Space</strong> handbrake</li>
+              <li><strong>M</strong> toggle mini map</li>
+              <li><strong>R</strong> reset car</li>
+            </ul>
+          </div>
+          <div>
+            <span class="label">Systems</span>
+            <ul>
+              <li>Lane-based traffic</li>
+              <li>Mission checkpoints</li>
+              <li>Third-person follow camera</li>
+              <li>Obstacle and vehicle collisions</li>
+            </ul>
+          </div>
+        </div>
+
+        <button id="playButton" class="play-button">Play</button>
+        <p class="menu-note">Best run from a local server such as VS Code Live Server.</p>
+      </div>
+    </div>
+
+    <div id="hud" class="hud hidden">
+      <div class="hud-left panel">
+        <div class="stat">
+          <span class="stat-label">Speed</span>
+          <div class="speed-row">
+            <span id="speedValue" class="speed-value">0</span>
+            <span class="unit">km/h</span>
+          </div>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="stat compact">
+          <span class="stat-label">Gear</span>
+          <span id="gearValue" class="gear-value">N</span>
+        </div>
+      </div>
+
+      <div id="missionPanel" class="mission-panel panel">
+        <div class="mini-title">Mission</div>
+        <div id="missionTitle" class="mission-title">Get rolling</div>
+        <div id="missionText" class="mission-text">Press Play to start driving.</div>
+        <div id="missionMeta" class="mission-meta">Checkpoint —</div>
+      </div>
+
+      <div class="hud-right panel controls-panel">
+        <div class="mini-title">Controls</div>
+        <div class="controls-list">
+          <span>W accelerate</span>
+          <span>S brake / reverse</span>
+          <span>A/D steer</span>
+          <span>Space handbrake</span>
+          <span>M mini map</span>
+          <span>R reset car</span>
+        </div>
+      </div>
+
+      <div id="minimapPanel" class="minimap-panel panel">
+        <div class="minimap-header">
+          <div class="mini-title">Mini map</div>
+          <button id="minimapToggle" class="mini-toggle" type="button">Hide</button>
+        </div>
+        <canvas id="minimapCanvas" width="240" height="240"></canvas>
+      </div>
+    </div>
+
+    <div id="loading" class="loading visible">Initializing scene…</div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
